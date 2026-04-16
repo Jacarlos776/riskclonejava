@@ -29,7 +29,7 @@ To run the application:
 ```
 
 
-# Note: I used IntelliJ IDEA, but I tested the git clone by running it in VSCode and it worked naman. Just needed to setup env variables for the java
+### Note: I used IntelliJ IDEA, but I tested the git clone by running it in VSCode and it worked naman. Just needed to setup env variables for the java
 
 
 # PROJECT GUIDE
@@ -74,9 +74,9 @@ You're only going to be looking at two folders really: java folder and resources
 ### Main and Launcher
 - Launcher.java: Does nothing really.
 - Main.java: assembles the Game World and initializes the JavaFX Stages, does five things:
-    Step 1:	Initialize Services - Loads the AdjacencyService first to ensure the game rules are ready before the UI exists.
-    Step 2:	Component Dependency - Creates the InteractiveMapPane and injects the AdjacencyService into it.
-    Step 3:	Event Binding - Uses a Method Reference (gameBoard::handleProvinceClick) to link the SVG parser to the map controller. This ensures that when an SVG path is clicked, the InteractiveMapPane knows exactly which province was triggered.
-    Step 4:	Scene Graph Construction - Wraps the interactive map in a StackPane (used here as the "Ocean" background) and sets the initial window resolution to 1280x720.
-    Step 5:	Stage Launch - Sets the window title and makes the application visible to the user.
+  - Step 1:	Initialize Services - Loads the AdjacencyService first to ensure the game rules are ready before the UI exists.
+  - Step 2:	Component Dependency - Creates the InteractiveMapPane and injects the AdjacencyService into it.
+  - Step 3:	Event Binding - Uses a Method Reference (gameBoard::handleProvinceClick) to link the SVG parser to the map controller. This ensures that when an SVG path is clicked, the InteractiveMapPane knows exactly which province was triggered.
+  - Step 4:	Scene Graph Construction - Wraps the interactive map in a StackPane (used here as the "Ocean" background) and sets the initial window resolution to 1280x720.
+  - Step 5:	Stage Launch - Sets the window title and makes the application visible to the user.
 
