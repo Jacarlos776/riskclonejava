@@ -1,6 +1,7 @@
 module com.mykogroup.riskclone {
     requires javafx.controls;
     requires javafx.fxml;
+    requires java.xml;
 
     requires org.controlsfx.controls;
     requires org.kordamp.ikonli.javafx;
