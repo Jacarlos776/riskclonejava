@@ -11,23 +11,21 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 
 public class SvgMapLoader {
 
     // Define standard colors as constants for easy tweaking
-    private static final String STYLE_NORMAL = "-fx-fill: #c2d5a8; -fx-stroke: #555555; -fx-stroke-width: 1;";
-    private static final String STYLE_HOVER = "-fx-fill: #d3e5b9; -fx-stroke: #ffffff; -fx-stroke-width: 2.5;";
-    private static final String STYLE_SELECTED = "-fx-fill: #f4a460; -fx-stroke: #8b4513; -fx-stroke-width: 2;"; // Amber/Gold
-    private static final String STYLE_SELECTED_HOVER = "-fx-fill: #ffb470; -fx-stroke: #ffffff; -fx-stroke-width: 2.5;";
+    public static final String STYLE_NORMAL = "-fx-fill: #c2d5a8; -fx-stroke: #555555; -fx-stroke-width: 1;";
+    public static final String STYLE_HOVER = "-fx-fill: #d3e5b9; -fx-stroke: #ffffff; -fx-stroke-width: 2.5;";
+    public static final String STYLE_SELECTED = "-fx-fill: #f4a460; -fx-stroke: #8b4513; -fx-stroke-width: 2;"; // Amber/Gold
+    public static final String STYLE_SELECTED_HOVER = "-fx-fill: #ffb470; -fx-stroke: #ffffff; -fx-stroke-width: 2.5;";
 
-    public static Map<String, SVGPath> loadMap(String resourcePath) {
+    public static Map<String, SVGPath> loadMap(String resourcePath, Consumer<SVGPath> onProvinceClicked) {
         Map<String, SVGPath> provinceNodes = new HashMap<>();
 
         try (InputStream is = SvgMapLoader.class.getResourceAsStream(resourcePath)) {
-            if (is == null) throw new IllegalArgumentException("Cannot find SVG: " + resourcePath);
-
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            Document document = factory.newDocumentBuilder().parse(is);
+            Document document = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(is);
             NodeList pathList = document.getElementsByTagName("path");
 
             for (int i = 0; i < pathList.getLength(); i++) {
@@ -40,8 +38,6 @@ public class SvgMapLoader {
                     svgPath.setContent(d);
                     svgPath.setId(id);
                     svgPath.setStyle(STYLE_NORMAL);
-
-                    // Initialize the selection state to false
                     svgPath.getProperties().put("selected", false);
 
                     // --- HOVER LOGIC ---
@@ -58,21 +54,9 @@ public class SvgMapLoader {
 
                     // --- CLICK LOGIC ---
                     svgPath.setOnMouseClicked(event -> {
-                        // Only trigger on Left Click (prevents panning from causing weird selections)
                         if (event.getButton() == MouseButton.PRIMARY) {
-
-                            // Toggle the boolean state
-                            boolean currentState = (boolean) svgPath.getProperties().get("selected");
-                            boolean newState = !currentState;
-                            svgPath.getProperties().put("selected", newState);
-
-                            // Immediately apply the "Selected Hover" style because the mouse is currently on it
-                            svgPath.setStyle(newState ? STYLE_SELECTED_HOVER : STYLE_HOVER);
-
-                            // Useful debug print to see the ID
-                            if (newState) {
-                                System.out.println("Selected Province ID: " + id);
-                            }
+                            // Pass the clicked node back to the InteractiveMapPane
+                            onProvinceClicked.accept(svgPath);
                         }
                     });
 
@@ -82,7 +66,12 @@ public class SvgMapLoader {
         } catch (Exception e) {
             e.printStackTrace();
         }
-
         return provinceNodes;
+    }
+
+    // Helper method to update a node's selection state cleanly
+    public static void setNodeSelected(SVGPath node, boolean selected) {
+        node.getProperties().put("selected", selected);
+        node.setStyle(selected ? STYLE_SELECTED : STYLE_NORMAL);
     }
 }

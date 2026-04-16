@@ -14,14 +14,15 @@ import java.util.Map;
 public class Main extends Application {
     @Override
     public void start(Stage stage) {
-        // 1. Load the map nodes
-        Map<String, SVGPath> mapNodes = SvgMapLoader.loadMap("/com/mykogroup/riskclone/map.svg");
 
-        // 2. Create a layout Pane (acts as the GameBoard)
+        // 1. Create the board first so we can pass its click-handler to the loader
         InteractiveMapPane gameBoard = new InteractiveMapPane();
 
+        // 2. Load the map nodes, passing in gameBoard::handleProvinceClick
+        Map<String, SVGPath> mapNodes = SvgMapLoader.loadMap("/com/mykogroup/riskclone/map.svg", gameBoard::handleProvinceClick);
+
         // 3. Add all SVG nodes to the Pane
-        gameBoard.getChildren().addAll(mapNodes.values());
+        gameBoard.addProvinces(mapNodes.values());
 
         // 4. Create static root layout for ocean background
         StackPane root = new StackPane();

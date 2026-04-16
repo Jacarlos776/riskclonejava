@@ -1,8 +1,15 @@
 package com.mykogroup.riskclone.view;
 
+import javafx.geometry.Bounds;
+import javafx.scene.Group;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.Pane;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Line;
+import javafx.scene.shape.SVGPath;
+
+import java.util.Collection;
 
 public class InteractiveMapPane extends Pane {
 
@@ -10,11 +17,61 @@ public class InteractiveMapPane extends Pane {
     private double lastMouseX;
     private double lastMouseY;
 
+    // --- GAME UI STATE ---
+    private SVGPath sourceProvince = null;
+
+    // --- Layers --- // Reason why we had to make two layers is because of the .toFront of provinces in SvgMapLoader. this means when you hover over the province it hides the arrows, so we make a second layer where the arrow is always on top.
+    private final Group provinceLayer = new Group();
+    private final Group arrowLayer = new Group(); // Note: Once we implement the planning and resolution phase, we should clear the arrow layer to remove all arrows.
+    // ADD MORE LAYERS AS NEEDED. for example: uiLayer for the UI, etc.
+
     public InteractiveMapPane() {
         // Attach event listeners upon instantiation
         this.setOnMousePressed(this::handleMousePressed);
         this.setOnMouseDragged(this::handleMouseDragged);
         this.setOnScroll(this::handleScroll);
+
+        // Add layers to the Pane.
+        // Order matters: arrowLayer is added second, so it always renders on top.
+        this.getChildren().addAll(provinceLayer, arrowLayer);
+    }
+
+    // --- Helper to add provinces to the correct layer ---
+    public void addProvinces(Collection<SVGPath> provinces) {
+        provinceLayer.getChildren().addAll(provinces);
+    }
+
+    // --- Handle the Source -> Destination flow ---
+    public void handleProvinceClick(SVGPath clickedNode) {
+        if (sourceProvince == null) {
+            sourceProvince = clickedNode;
+            SvgMapLoader.setNodeSelected(sourceProvince, true);
+        } else if (sourceProvince == clickedNode) {
+            SvgMapLoader.setNodeSelected(sourceProvince, false);
+            sourceProvince = null;
+        } else {
+            drawArrow(sourceProvince, clickedNode);
+            SvgMapLoader.setNodeSelected(sourceProvince, false);
+            sourceProvince = null;
+        }
+    }
+
+    private void drawArrow(SVGPath source, SVGPath target) {
+        Bounds sourceBounds = source.getBoundsInParent();
+        Bounds targetBounds = target.getBoundsInParent();
+
+        Line arrow = new Line(
+                sourceBounds.getCenterX(), sourceBounds.getCenterY(),
+                targetBounds.getCenterX(), targetBounds.getCenterY()
+        );
+
+        arrow.setStrokeWidth(4);
+        arrow.setStroke(Color.DARKRED);
+        arrow.getStrokeDashArray().addAll(10d, 5d);
+        arrow.setMouseTransparent(true);
+
+        // Add the arrow to the top layer (arrow)
+        arrowLayer.getChildren().add(arrow);
     }
 
     private void handleMousePressed(MouseEvent event) {
