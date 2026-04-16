@@ -26,7 +26,7 @@ public class AdjacencyService {
         }
     }
 
-    // The O(1) lookup method
+    // O(1) lookup
     public boolean areAdjacent(String provinceA, String provinceB) {
         List<String> neighbors = adjacencyMap.get(provinceA);
         return neighbors != null && neighbors.contains(provinceB);
