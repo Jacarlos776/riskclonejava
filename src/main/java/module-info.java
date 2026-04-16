@@ -5,7 +5,11 @@ module com.mykogroup.riskclone {
 
     requires org.controlsfx.controls;
     requires org.kordamp.ikonli.javafx;
+    requires com.fasterxml.jackson.databind;
+    requires com.fasterxml.jackson.core;
 
     opens com.mykogroup.riskclone to javafx.fxml;
+    opens com.mykogroup.riskclone.engine to com.fasterxml.jackson.databind;
+
     exports com.mykogroup.riskclone;
 }

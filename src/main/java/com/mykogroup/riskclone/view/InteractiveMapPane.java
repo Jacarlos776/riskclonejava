@@ -1,5 +1,6 @@
 package com.mykogroup.riskclone.view;
 
+import com.mykogroup.riskclone.engine.AdjacencyService;
 import javafx.geometry.Bounds;
 import javafx.scene.Group;
 import javafx.scene.input.MouseEvent;
@@ -20,12 +21,17 @@ public class InteractiveMapPane extends Pane {
     // --- GAME UI STATE ---
     private SVGPath sourceProvince = null;
 
+    // --- GAME LOGIC STATE ---
+    private final AdjacencyService adjacencyService;
+
+
     // --- Layers --- // Reason why we had to make two layers is because of the .toFront of provinces in SvgMapLoader. this means when you hover over the province it hides the arrows, so we make a second layer where the arrow is always on top.
     private final Group provinceLayer = new Group();
     private final Group arrowLayer = new Group(); // Note: Once we implement the planning and resolution phase, we should clear the arrow layer to remove all arrows.
     // ADD MORE LAYERS AS NEEDED. for example: uiLayer for the UI, etc.
 
-    public InteractiveMapPane() {
+    public InteractiveMapPane(AdjacencyService adjacencyService) {
+        this.adjacencyService = adjacencyService;
         // Attach event listeners upon instantiation
         this.setOnMousePressed(this::handleMousePressed);
         this.setOnMouseDragged(this::handleMouseDragged);
@@ -46,13 +52,44 @@ public class InteractiveMapPane extends Pane {
         if (sourceProvince == null) {
             sourceProvince = clickedNode;
             SvgMapLoader.setNodeSelected(sourceProvince, true);
+
+            System.out.println("Selected Province ID: " + sourceProvince.getId());
         } else if (sourceProvince == clickedNode) {
             SvgMapLoader.setNodeSelected(sourceProvince, false);
             sourceProvince = null;
+
+            System.out.println("Selection cancelled.");
         } else {
-            drawArrow(sourceProvince, clickedNode);
-            SvgMapLoader.setNodeSelected(sourceProvince, false);
-            sourceProvince = null;
+            String sourceId = sourceProvince.getId();
+            String targetId = clickedNode.getId();
+
+            if (adjacencyService.areAdjacent(sourceId, targetId)) {
+                // It's a valid neighbor! Draw the arrow.
+                drawArrow(sourceProvince, clickedNode);
+
+                // Clear sourceProvince UI
+                SvgMapLoader.setNodeSelected(sourceProvince, false);
+                sourceProvince = null;
+
+                // TODO: Create the Move object and add it to GameState
+                // Move move = new Move("localPlayer", sourceId, targetId, 5);
+                // gameState.addMove(move);
+
+                System.out.println("Valid move queued: " + sourceId + " -> " + targetId);
+
+            } else {
+                // Illegal move. Just select the province and unselect the previous one
+                System.out.println("Invalid move: " + targetId + " does not border " + sourceId);
+
+                // Unselect the old source
+                SvgMapLoader.setNodeSelected(sourceProvince, false);
+
+                // Make clicked province the new source province and update UI
+                sourceProvince = clickedNode;
+                SvgMapLoader.setNodeSelected(sourceProvince, true);
+
+                System.out.println("Selected Province ID: " + sourceProvince.getId());
+            }
         }
     }
 

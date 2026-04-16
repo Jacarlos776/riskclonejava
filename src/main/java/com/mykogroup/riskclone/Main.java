@@ -1,5 +1,6 @@
 package com.mykogroup.riskclone;
 
+import com.mykogroup.riskclone.engine.AdjacencyService;
 import com.mykogroup.riskclone.view.InteractiveMapPane;
 import com.mykogroup.riskclone.view.SvgMapLoader;
 import javafx.application.Application;
@@ -15,8 +16,10 @@ public class Main extends Application {
     @Override
     public void start(Stage stage) {
 
+        AdjacencyService adjacencyService = new AdjacencyService("/com/mykogroup/riskclone/province.json");
+
         // 1. Create the board first so we can pass its click-handler to the loader
-        InteractiveMapPane gameBoard = new InteractiveMapPane();
+        InteractiveMapPane gameBoard = new InteractiveMapPane(adjacencyService);
 
         // 2. Load the map nodes, passing in gameBoard::handleProvinceClick
         Map<String, SVGPath> mapNodes = SvgMapLoader.loadMap("/com/mykogroup/riskclone/map.svg", gameBoard::handleProvinceClick);

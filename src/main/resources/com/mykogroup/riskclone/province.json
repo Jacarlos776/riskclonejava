@@ -1,0 +1,5 @@
+{
+  "PH-BTN": ["PH-CAG"],
+  "PH-CAG": ["PH-BTN", "PH-APA", "PH-ILN", "PH-ISA", "PH-KAL"],
+  "PH-ILN": ["PH-CAG", "PH-APA", "PH-ABR", "PH-ILS"]
+}
