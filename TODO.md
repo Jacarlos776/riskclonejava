@@ -18,7 +18,7 @@ Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'e
 - [ ] **Move Validation Enhancements:**
         
   - [ ] Prevent players from selecting/moving from a province they don't own.
-  - [ ] Add a "Cancel Move" button or right-click to clear the `arrowLayer`. Maybe a drag animation from one province to another? idk whichever's easiest to implement
+  - [X] ~~Add a "Cancel Move" button or right-click to clear the `arrowLayer`. Maybe a drag animation from one province to another? idk whichever's easiest to implement~~ Update: when the user moves army count from one province to another to zero, the arrow just disappears
 - [X] **Troop Allocation UI:** Create a small JavaFX `HBox` or `Slider` that pops up when a move is queued to select the number of troops.
 
 - [ ] **Turn Timer:** Implement a `Timeline` or `AnimationTimer` for the 60-second countdown.
