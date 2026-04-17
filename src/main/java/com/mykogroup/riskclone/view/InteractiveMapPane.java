@@ -104,17 +104,30 @@ public class InteractiveMapPane extends Pane {
 
     // --- Handle the Source -> Destination flow ---
     public void handleProvinceClick(SVGPath clickedNode) {
-        if (sourceProvince == null) {
-            sourceProvince = clickedNode;
-            SvgMapLoader.setNodeSelected(sourceProvince, true);
+        if (gameState == null) {
+            System.err.println("GameState not attached to board");
+            return;
+        }
 
-            System.out.println("Selected Province ID: " + sourceProvince.getId());
-        } else if (sourceProvince == clickedNode) {
+        String clickedId = clickedNode.getId();
+
+        if (sourceProvince == null) { // State 1: Nothing is selected yet. Set this as the Source.
+            Optional<Province> pData = gameState.getProvince(clickedId);
+
+            if (pData.isPresent() && currentLocalPlayerId.equals(pData.get().getOwnerId())) {
+                sourceProvince = clickedNode;
+                SvgMapLoader.setNodeSelected(sourceProvince, true);
+                System.out.println("Selected Province ID: " + sourceProvince.getId());
+            } else {
+                System.out.println("Cannot select " + clickedId + " - you do not own it.");
+            }
+
+        } else if (sourceProvince == clickedNode) { // State 2: User clicked the same province again. Cancel selection.
             SvgMapLoader.setNodeSelected(sourceProvince, false);
             sourceProvince = null;
-
             System.out.println("Selection cancelled.");
-        } else {
+
+        } else { // State 3: A source is selected, and they clicked a different province. Destination!
             String sourceId = sourceProvince.getId();
             String targetId = clickedNode.getId();
 
@@ -141,12 +154,19 @@ public class InteractiveMapPane extends Pane {
                 // Illegal move. Just select the province and unselect the previous one
                 System.out.println("Invalid move: " + targetId + " does not border " + sourceId);
 
-                // Unselect the old source
-                SvgMapLoader.setNodeSelected(sourceProvince, false);
-
-                // Make clicked province the new source province and update UI
-                sourceProvince = clickedNode;
-                SvgMapLoader.setNodeSelected(sourceProvince, true);
+                Optional<Province> pData = gameState.getProvince(clickedId);
+                if (pData.isPresent() && currentLocalPlayerId.equals(pData.get().getOwnerId())) {
+                    // They own the new province, so safely pivot the selection
+                    SvgMapLoader.setNodeSelected(sourceProvince, false);
+                    sourceProvince = clickedNode;
+                    SvgMapLoader.setNodeSelected(sourceProvince, true);
+                    System.out.println("Pivoted selection to: " + sourceProvince.getId());
+                } else {
+                    // They clicked an invalid enemy province. Just cancel the original selection.
+                    SvgMapLoader.setNodeSelected(sourceProvince, false);
+                    sourceProvince = null;
+                    System.out.println("Selection cleared.");
+                }
             }
         }
     }

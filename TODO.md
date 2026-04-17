@@ -15,9 +15,9 @@ Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'e
   - [X] Create a `uiLayer` in `InteractiveMapPane`.
   - [X] Add `Text` nodes that follow the center of each province to show current army size.
 
-- [ ] **Move Validation Enhancements:**
+- [X] **Move Validation Enhancements:**
         
-  - [ ] Prevent players from selecting/moving from a province they don't own.
+  - [X] Prevent players from selecting/moving from a province they don't own.
   - [X] ~~Add a "Cancel Move" button or right-click to clear the `arrowLayer`. Maybe a drag animation from one province to another? idk whichever's easiest to implement~~ Update: when the user moves army count from one province to another to zero, the arrow just disappears
 - [X] **Troop Allocation UI:** Create a small JavaFX `HBox` or `Slider` that pops up when a move is queued to select the number of troops.
 
@@ -42,4 +42,5 @@ Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'e
 - Music during resolution phase, music during animation of resolution phase
 - Cards: When you win a province, you get part of a card, complete a set and you can get extra armies.
 - Combat Modifier: Add a lil bit of randomness to the resolution phase by giving armies +/- 10% combat efficiency roll, letting smaller armies potentially beat larger ones.
+- Menu Stage before the actual game. Could add here the colorwheel and joining the host server by inputting port, etc. If we have a color wheel, should appear after joining the host, and we should be able to see what colors other players chose/are choosing.
 ### Won't Haves
