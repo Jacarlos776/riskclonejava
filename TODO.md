@@ -19,7 +19,7 @@ Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'e
         
   - [ ] Prevent players from selecting/moving from a province they don't own.
   - [ ] Add a "Cancel Move" button or right-click to clear the `arrowLayer`. Maybe a drag animation from one province to another? idk whichever's easiest to implement
-- [ ] **Troop Allocation UI:** Create a small JavaFX `HBox` or `Slider` that pops up when a move is queued to select the number of troops.
+- [X] **Troop Allocation UI:** Create a small JavaFX `HBox` or `Slider` that pops up when a move is queued to select the number of troops.
 
 - [ ] **Turn Timer:** Implement a `Timeline` or `AnimationTimer` for the 60-second countdown.
 
