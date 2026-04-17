@@ -10,7 +10,7 @@ Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'e
 - [X] **Owner-Based Styling:** Modify `SvgMapLoader` or `Main` to color provinces based on `ownerId` (e.g., Player 1 = Red, Player 2 = Blue).
 
 ## 🟡 Phase 2: Gameplay UI & Interaction
-- [ ] **Troop Count Labels:** 
+- [X] **Troop Count Labels:** 
 
   - [X] Create a `uiLayer` in `InteractiveMapPane`.
   - [X] Add `Text` nodes that follow the center of each province to show current army size.
