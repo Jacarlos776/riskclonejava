@@ -12,7 +12,7 @@ Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'e
 ## 🟡 Phase 2: Gameplay UI & Interaction
 - [ ] **Troop Count Labels:** 
 
-  - [ ] Create a `uiLayer` in `InteractiveMapPane`.
+  - [X] Create a `uiLayer` in `InteractiveMapPane`.
   - [ ] Add `Text` nodes that follow the center of each province to show current army size.
 
 - [ ] **Move Validation Enhancements:**
@@ -22,3 +22,14 @@ Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'e
 - [ ] **Troop Allocation UI:** Create a small JavaFX `HBox` or `Slider` that pops up when a move is queued to select the number of troops.
 
 - [ ] **Turn Timer:** Implement a `Timeline` or `AnimationTimer` for the 60-second countdown.
+
+## MoSCoW
+
+### Must Haves
+
+### Should Haves
+- Redesign Arrow
+### Could Haves
+- Music and Mute button on top right
+- Color Picker/Wheel - let the players decide on their own colors
+### Won't Haves

@@ -9,12 +9,4 @@ public record Move(
         @JsonProperty("fromId") String fromId,
         @JsonProperty("toId") String toId,
         @JsonProperty("armies") int armies
-) {
-    // A record automatically generates a constructor, getters, equals(), hashCode(), and toString().
-    // We only need to define custom logic if we want strict validation right at creation.
-    public Move {
-        if (armies <= 0) {
-            throw new IllegalArgumentException("Must move at least 1 army.");
-        }
-    }
-}
+) {}
