@@ -1,6 +1,7 @@
 package com.mykogroup.riskclone;
 
 import com.mykogroup.riskclone.engine.AdjacencyService;
+import com.mykogroup.riskclone.engine.ResolutionEngine;
 import com.mykogroup.riskclone.model.GameState;
 import com.mykogroup.riskclone.model.Player;
 import com.mykogroup.riskclone.model.Province;
@@ -10,6 +11,7 @@ import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Application;
 import javafx.geometry.Pos;
+import javafx.scene.Group;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -29,7 +31,7 @@ public class Main extends Application {
     private Timeline phaseTimer;
     private int currentPlayerIndex = 0; // Tracks whose turn it is locally
 
-    private void setupTimerUI(StackPane root, GameState masterState, InteractiveMapPane gameBoard) {
+    private void setupTimerUI(StackPane root, GameState masterState, InteractiveMapPane gameBoard, ResolutionEngine resolutionEngine) {
         // --- Timer Label ---
         Label timerLabel = new Label("Planning Phase: 60s");
         timerLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
@@ -67,7 +69,34 @@ public class Main extends Application {
             gameBoard.setDisable(true); // Lock the board
 
             System.out.println("Executing moves for all players...");
-            // TODO: resolutionEngine.processTurn(masterState);
+
+            // 1. Process the math!
+            resolutionEngine.processTurn(masterState);
+
+            // 2. Erase the visual arrows from the previous phase
+            gameBoard.clearArrows();
+
+            // 3. Re-render the map with the new ownership and troop counts
+            gameBoard.renderState(masterState);
+
+            // 4. Reset for the next turn
+            // We use a small Timeline delay just so players can "see" the resolution phase
+            // for a few seconds before the next planning phase starts.
+            Timeline resetDelay = new Timeline(new KeyFrame(Duration.seconds(3), ev -> {
+                currentPlayerIndex = 0;
+                Player firstPlayer = masterState.getPlayers().get(currentPlayerIndex);
+                gameBoard.setCurrentLocalPlayerId(firstPlayer.getId());
+
+                playerTurnLabel.setText("Current Player: " + firstPlayer.getDisplayName());
+                timerLabel.setText("Planning Phase: 60s");
+                timerLabel.setTextFill(Color.WHITE);
+
+                timeRemaining = 60;
+                endTurnBtn.setDisable(false);
+                gameBoard.setDisable(false);
+                phaseTimer.playFromStart();
+            }));
+            resetDelay.play();
         };
 
         // --- Button Logic (Hotseat Passing) ---
@@ -119,6 +148,7 @@ public class Main extends Application {
     public void start(Stage stage) {
 
         AdjacencyService adjacencyService = new AdjacencyService("/com/mykogroup/riskclone/province.json");
+        ResolutionEngine resolutionEngine = new ResolutionEngine();
         GameState masterState = new GameState();
 
         // 1. Create the board first so we can pass its click-handler to the loader
@@ -157,7 +187,7 @@ public class Main extends Application {
         root.getChildren().add(gameBoard);
 
         // --- Initialize the fixed timer HUD ---
-        setupTimerUI(root, masterState, gameBoard);
+        setupTimerUI(root, masterState, gameBoard, resolutionEngine);
 
         // 6. Setup and show the Scene
         Scene scene = new Scene(root, 1280, 720);
