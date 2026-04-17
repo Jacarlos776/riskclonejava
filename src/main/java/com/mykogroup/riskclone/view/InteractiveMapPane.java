@@ -39,6 +39,7 @@ public class InteractiveMapPane extends Pane {
     // --- GAME LOGIC STATE ---
     private final AdjacencyService adjacencyService;
     private GameState gameState;
+    private String currentLocalPlayerId = "player1"; // Default
 
 
     // --- Layers --- // Reason why we had to make two layers is because of the .toFront of provinces in SvgMapLoader. this means when you hover over the province it hides the arrows, so we make a second layer where the arrow is always on top.
@@ -67,6 +68,10 @@ public class InteractiveMapPane extends Pane {
 
     public void setGameState(GameState gameState) {
         this.gameState = gameState;
+    }
+
+    public void setCurrentLocalPlayerId(String playerId) {
+        this.currentLocalPlayerId = playerId;
     }
 
     // --- Helper to add provinces to the correct layer ---
@@ -306,13 +311,13 @@ public class InteractiveMapPane extends Pane {
 
             if (finalArmies == 0) {
                 // Cancel Move
-                gameState.setMove(new Move("localPlayer1", source.getId(), target.getId(), 0));
+                gameState.setMove(new Move(currentLocalPlayerId, source.getId(), target.getId(), 0));
                 Line arrow = activeArrows.remove(pathKey);
                 if (arrow != null) arrowLayer.getChildren().remove(arrow);
                 System.out.println("Move cancelled.");
             } else {
                 // Save Move
-                gameState.setMove(new Move("localPlayer1", source.getId(), target.getId(), finalArmies));
+                gameState.setMove(new Move(currentLocalPlayerId, source.getId(), target.getId(), finalArmies));
                 if (!activeArrows.containsKey(pathKey)) {
                     drawArrow(source, target, pathKey);
                 }

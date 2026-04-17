@@ -11,6 +11,7 @@ import javafx.animation.Timeline;
 import javafx.application.Application;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
+import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
@@ -26,24 +27,73 @@ public class Main extends Application {
 
     private int timeRemaining = 60;
     private Timeline phaseTimer;
+    private int currentPlayerIndex = 0; // Tracks whose turn it is locally
 
     private void setupTimerUI(StackPane root, GameState masterState, InteractiveMapPane gameBoard) {
-        // 1. Create the visual label
+        // --- Timer Label ---
         Label timerLabel = new Label("Planning Phase: 60s");
         timerLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
         timerLabel.setTextFill(Color.WHITE);
         timerLabel.setStyle("-fx-background-color: rgba(0,0,0,0.5); -fx-padding: 10px; -fx-background-radius: 5px;");
+        StackPane.setAlignment(timerLabel, Pos.TOP_CENTER); // 2. Align it to the Top Center of the screen
+        timerLabel.setTranslateY(20); // Push it down slightly so it's not flush with the window edge
 
-        // 2. Align it to the Top Center of the screen
-        StackPane.setAlignment(timerLabel, Pos.TOP_CENTER);
+        // --- The Current Player Indicator (Remove this later for Socket/Multiplayer) ---
+        Label playerTurnLabel = new Label("Current Player: " + masterState.getPlayers().get(0).getDisplayName());
+        playerTurnLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
+        playerTurnLabel.setTextFill(Color.WHITE);
+        playerTurnLabel.setStyle("-fx-background-color: rgba(0,0,0,0.5); -fx-padding: 5px; -fx-background-radius: 5px;");
+        StackPane.setAlignment(playerTurnLabel, Pos.TOP_LEFT);
+        playerTurnLabel.setTranslateY(20);
+        playerTurnLabel.setTranslateX(20);
 
-        // Push it down slightly so it's not flush with the window edge
-        timerLabel.setTranslateY(20);
+        // --- The End Turn Button ---
+        Button endTurnBtn = new Button("End Turn");
+        endTurnBtn.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-background-color: #f59e0b; -fx-text-fill: white;");
+        StackPane.setAlignment(endTurnBtn, Pos.TOP_RIGHT);
+        endTurnBtn.setTranslateY(20);
+        endTurnBtn.setTranslateX(-20);
 
-        // 3. Add it to the stationary root (above the gameBoard)
-        root.getChildren().add(timerLabel);
+        // Add them all to root
+        root.getChildren().addAll(timerLabel, playerTurnLabel, endTurnBtn);
 
-        // 4. Create the Timeline logic
+        // --- Define the Resolution Trigger ---
+        // We pull this into a Runnable so we can call it from the timer OR the button
+        Runnable triggerResolution = () -> {
+            phaseTimer.stop(); // Stop the clock!
+            timerLabel.setText("RESOLUTION PHASE");
+            timerLabel.setTextFill(Color.GOLD);
+            endTurnBtn.setDisable(true);
+            gameBoard.setDisable(true); // Lock the board
+
+            System.out.println("Executing moves for all players...");
+            // TODO: resolutionEngine.processTurn(masterState);
+        };
+
+        // --- Button Logic (Hotseat Passing) ---
+        endTurnBtn.setOnAction(e -> {
+            Player currentPlayer = masterState.getPlayers().get(currentPlayerIndex);
+            masterState.setPlayerReady(currentPlayer.getId());
+
+            System.out.println(currentPlayer.getDisplayName() + " is ready.");
+
+            if (masterState.areAllPlayersReady()) {
+                // Everyone is done! Skip the rest of the timer.
+                triggerResolution.run();
+            } else {
+                // Pass to the next player
+                currentPlayerIndex++;
+                Player nextPlayer = masterState.getPlayers().get(currentPlayerIndex);
+
+                // Update the map to queue moves for the new player
+                gameBoard.setCurrentLocalPlayerId(nextPlayer.getId());
+
+                // Update the UI
+                playerTurnLabel.setText("Current Player: " + nextPlayer.getDisplayName());
+            }
+        });
+
+        // --- Timeline Logic ---
         phaseTimer = new Timeline(
                 new KeyFrame(Duration.seconds(1), event -> {
                     timeRemaining--;
@@ -58,21 +108,8 @@ public class Main extends Application {
 
         // Tell it to run exactly 60 times (for 60 seconds)
         phaseTimer.setCycleCount(60);
-
-        // What happens when it hits 0?
-        phaseTimer.setOnFinished(event -> {
-            timerLabel.setText("RESOLUTION PHASE");
-            timerLabel.setTextFill(Color.GOLD);
-
-            // Lock the UI so players can't click during resolution
-            gameBoard.setDisable(true);
-
-            System.out.println("Time's up! Executing moves...");
-
-            // TODO: Call Resolution Engine here
-            // resolutionEngine.processTurn(masterState);
-            // gameBoard.renderState(masterState);
-        });
+        phaseTimer.setOnFinished(event -> triggerResolution.run());
+        phaseTimer.play();
 
         // Start the clock!
         phaseTimer.play();

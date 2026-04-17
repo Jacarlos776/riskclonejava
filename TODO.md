@@ -22,6 +22,7 @@ Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'e
 - [X] **Troop Allocation UI:** Create a small JavaFX `HBox` or `Slider` that pops up when a move is queued to select the number of troops.
 
 - [X] **Turn Timer:** Implement a `Timeline` or `AnimationTimer` for the 60-second countdown.
+- [X] **Switch Players:** Button that switches player, down the line we'll refactor this to just indicate that the player is done moving
 
 ## 🔴 MoSCoW
 
@@ -33,4 +34,5 @@ Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'e
 ### Could Haves
 - Music and Mute button on top right
 - Color Picker/Wheel - let the players decide on their own colors
+- Music during resolution phase, music during animation of resolution phase
 ### Won't Haves

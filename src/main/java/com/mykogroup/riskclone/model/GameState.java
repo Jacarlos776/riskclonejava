@@ -1,9 +1,8 @@
 package com.mykogroup.riskclone.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+
+import java.util.*;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class GameState {
@@ -11,6 +10,7 @@ public class GameState {
     private List<Player> players = new ArrayList<>();
     private List<Province> provinces = new ArrayList<>();
     private List<Move> queuedMoves = new ArrayList<>();
+    private Set<String> readyPlayers = new HashSet<>();
 
     // Default constructor for Jackson
     public GameState() {}
@@ -70,6 +70,14 @@ public class GameState {
         }
     }
 
+    public boolean areAllPlayersReady() {
+        return !players.isEmpty() && readyPlayers.size() >= players.size();
+    }
+
+    public void resetReadyStates() {
+        readyPlayers.clear();
+    }
+
     // --- Getters and Setters for Jackson ---
 
     public List<Player> getPlayers() { return players; }
@@ -80,4 +88,8 @@ public class GameState {
 
     public List<Move> getQueuedMoves() { return queuedMoves; }
     public void setQueuedMoves(List<Move> queuedMoves) { this.queuedMoves = queuedMoves; }
+
+    public void setPlayerReady(String playerId) {
+        readyPlayers.add(playerId);
+    }
 }
