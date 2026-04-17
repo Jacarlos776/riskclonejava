@@ -13,7 +13,7 @@ Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'e
 - [ ] **Troop Count Labels:** 
 
   - [X] Create a `uiLayer` in `InteractiveMapPane`.
-  - [ ] Add `Text` nodes that follow the center of each province to show current army size.
+  - [X] Add `Text` nodes that follow the center of each province to show current army size.
 
 - [ ] **Move Validation Enhancements:**
         

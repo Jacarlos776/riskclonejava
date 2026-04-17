@@ -17,6 +17,10 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Line;
 import javafx.scene.shape.SVGPath;
+import javafx.scene.shape.StrokeType;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
+import javafx.scene.text.Text;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -39,12 +43,14 @@ public class InteractiveMapPane extends Pane {
 
     // --- Layers --- // Reason why we had to make two layers is because of the .toFront of provinces in SvgMapLoader. this means when you hover over the province it hides the arrows, so we make a second layer where the arrow is always on top.
     private final Group provinceLayer = new Group();
+    private final Group labelLayer = new Group();
     private final Group arrowLayer = new Group(); // Note: Once we implement the planning and resolution phase, we should clear the arrow layer to remove all arrows.
     private final Group uiLayer = new Group();
     // ADD MORE LAYERS AS NEEDED. for example: uiLayer for the UI, etc.
 
     // Track arrows so we can delete them
     private final Map<String, Line> activeArrows = new HashMap<>();
+    private final Map<String, Text> armyLabels = new HashMap<>(); // Track text
 
     public InteractiveMapPane(AdjacencyService adjacencyService, GameState gameState) {
         this.adjacencyService = adjacencyService;
@@ -56,7 +62,7 @@ public class InteractiveMapPane extends Pane {
 
         // Add layers to the Pane.
         // Order matters: arrowLayer is added second, so it always renders on top.
-        this.getChildren().addAll(provinceLayer, arrowLayer, uiLayer);
+        this.getChildren().addAll(provinceLayer, labelLayer, arrowLayer, uiLayer);
     }
 
     public void setGameState(GameState gameState) {
@@ -66,6 +72,29 @@ public class InteractiveMapPane extends Pane {
     // --- Helper to add provinces to the correct layer ---
     public void addProvinces(Collection<SVGPath> provinces) {
         provinceLayer.getChildren().addAll(provinces);
+
+        for (SVGPath province : provinces) {
+            Text label = new Text(""); // Start empty
+
+            // Prevent the text from blocking clicks on the province
+            label.setMouseTransparent(true);
+
+            // High visibility styling (White text with a black outline)
+            label.setFont(Font.font("System", FontWeight.BOLD, 18));
+            label.setFill(Color.WHITE);
+            label.setStroke(Color.BLACK);
+            label.setStrokeType(StrokeType.OUTSIDE);
+            label.setStrokeWidth(1);
+
+            // Rough centering (We refine this dynamically in renderState)
+            Bounds b = province.getBoundsInParent();
+            label.setX(b.getCenterX());
+            label.setY(b.getCenterY());
+
+            // Save the label in our map and add it to the layer
+            armyLabels.put(province.getId(), label);
+            labelLayer.getChildren().add(label);
+        }
     }
 
     // --- Handle the Source -> Destination flow ---
@@ -205,15 +234,36 @@ public class InteractiveMapPane extends Pane {
                 Optional<Province> provinceData = state.getProvince(provinceId);
 
                 if (provinceData.isPresent()) {
-                    String ownerId = provinceData.get().getOwnerId();
-                    String newColor = ColorManager.getColorForPlayer(ownerId);
+                    Province p = provinceData.get();
 
-                    // Update the node's memory of its base color
-                    svgPath.getProperties().put("baseColor", newColor);
+                    // --- Handle Color/Owner ---
+                    String ownerId = p.getOwnerId();
+                    String newColor = ColorManager.getColorForPlayer(ownerId);
+                    svgPath.getProperties().put("baseColor", newColor); // Update the node's memory of its base color
 
                     // Reapply the style (maintaining current selection status)
                     boolean isSelected = (boolean) svgPath.getProperties().get("selected");
                     svgPath.setStyle(SvgMapLoader.generateStyle(newColor, isSelected, false));
+
+                    // --- Handle Text Labels ---
+                    Text label = armyLabels.get(provinceId);
+                    if (label != null) {
+                        int count = p.getArmyCount();
+
+                        // Only show numbers if there is an army
+                        if (count > 0) {
+                            label.setText(String.valueOf(count));
+
+                            // Fine-tune centering based on text width (so "1" and "100" are both perfectly centered)
+                            Bounds textBounds = label.getLayoutBounds();
+                            Bounds pathBounds = svgPath.getBoundsInParent();
+
+                            label.setX(pathBounds.getCenterX() - (textBounds.getWidth() / 2));
+                            label.setY(pathBounds.getCenterY() + (textBounds.getHeight() / 4));
+                        } else {
+                            label.setText(""); // Hide if neutral/empty
+                        }
+                    }
                 }
             }
         }
