@@ -1,6 +1,8 @@
 package com.mykogroup.riskclone.view;
 
 import com.mykogroup.riskclone.engine.AdjacencyService;
+import com.mykogroup.riskclone.model.GameState;
+import com.mykogroup.riskclone.model.Move;
 import javafx.geometry.Bounds;
 import javafx.scene.Group;
 import javafx.scene.input.MouseEvent;
@@ -23,6 +25,7 @@ public class InteractiveMapPane extends Pane {
 
     // --- GAME LOGIC STATE ---
     private final AdjacencyService adjacencyService;
+    private final GameState gameState;
 
 
     // --- Layers --- // Reason why we had to make two layers is because of the .toFront of provinces in SvgMapLoader. this means when you hover over the province it hides the arrows, so we make a second layer where the arrow is always on top.
@@ -30,8 +33,9 @@ public class InteractiveMapPane extends Pane {
     private final Group arrowLayer = new Group(); // Note: Once we implement the planning and resolution phase, we should clear the arrow layer to remove all arrows.
     // ADD MORE LAYERS AS NEEDED. for example: uiLayer for the UI, etc.
 
-    public InteractiveMapPane(AdjacencyService adjacencyService) {
+    public InteractiveMapPane(AdjacencyService adjacencyService, GameState gameState) {
         this.adjacencyService = adjacencyService;
+        this.gameState = gameState;
         // Attach event listeners upon instantiation
         this.setOnMousePressed(this::handleMousePressed);
         this.setOnMouseDragged(this::handleMouseDragged);
@@ -71,9 +75,9 @@ public class InteractiveMapPane extends Pane {
                 SvgMapLoader.setNodeSelected(sourceProvince, false);
                 sourceProvince = null;
 
-                // TODO: Create the Move object and add it to GameState
-                // Move move = new Move("localPlayer", sourceId, targetId, 5);
-                // gameState.addMove(move);
+                // Hardcoding '5' armies for now until we build the popup UI
+                Move newMove = new Move("localPlayer1", sourceId, targetId, 5);
+                gameState.queueMove(newMove);
 
                 System.out.println("Valid move queued: " + sourceId + " -> " + targetId);
 
