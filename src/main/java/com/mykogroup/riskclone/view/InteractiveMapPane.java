@@ -151,6 +151,11 @@ public class InteractiveMapPane extends Pane {
         }
     }
 
+    public void clearArrows() {
+        activeArrows.clear();
+        arrowLayer.getChildren().clear();
+    }
+
     private void drawArrow(SVGPath source, SVGPath target, String pathKey) {
         Bounds sourceBounds = source.getBoundsInParent();
         Bounds targetBounds = target.getBoundsInParent();

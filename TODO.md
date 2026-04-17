@@ -23,6 +23,11 @@ Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'e
 
 - [X] **Turn Timer:** Implement a `Timeline` or `AnimationTimer` for the 60-second countdown.
 - [X] **Switch Players:** Button that switches player, down the line we'll refactor this to just indicate that the player is done moving
+- [X] **Resolution Engine:** handles what happens when armies move, has three phases
+  - [X] **Phase 1 DEPARTURES:** Decreases army count for all departed provinces
+  - [X] **Phase 2 CROSSFIRES:** What happens when Army 1 from Province A goes to Province B and Army 2 from Province B goes to Province A and they meet head on
+  - [X] **Phase 3 CONVERGENCE & CLASHES:** Has three possible scenarios - Peaceful Transfer, Standard Invasion, Multi-way Bloodbath. Check code itself for more info
+  - [X] **Bonus Phase 4 TIE-BREAKER:** If army is an exact match, defender has advantage, else if two attackers are tied while invading an empty or third party province, they annihilate each other, nobody gets the province.
 
 ## 🔴 MoSCoW
 
@@ -35,4 +40,6 @@ Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'e
 - Music and Mute button on top right
 - Color Picker/Wheel - let the players decide on their own colors
 - Music during resolution phase, music during animation of resolution phase
+- Cards: When you win a province, you get part of a card, complete a set and you can get extra armies.
+- Combat Modifier: Add a lil bit of randomness to the resolution phase by giving armies +/- 10% combat efficiency roll, letting smaller armies potentially beat larger ones.
 ### Won't Haves
