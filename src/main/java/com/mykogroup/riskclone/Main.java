@@ -28,6 +28,9 @@ public class Main extends Application {
         Map<String, SVGPath> mapNodes = SvgMapLoader.loadMap("/com/mykogroup/riskclone/map.svg", gameBoard::handleProvinceClick);
         gameBoard.addProvinces(mapNodes.values());
 
+        // Pass gameState to InteractiveMapPane
+        gameBoard.setGameState(masterState);
+
         // 3. Add players to GameState
         masterState.getPlayers().add(new Player("player1", "Joshua"));
         masterState.getPlayers().add(new Player("player2", "Enemy AI"));

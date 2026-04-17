@@ -36,6 +36,40 @@ public class GameState {
                 .findFirst();
     }
 
+    // Find if a move already exists between these two provinces
+    public Optional<Move> getExistingMove(String fromId, String toId) {
+        return queuedMoves.stream()
+                .filter(m -> m.fromId().equals(fromId) && m.toId().equals(toId))
+                .findFirst();
+    }
+
+    // Calculate how many troops the player can send
+    public int getAvailableTroopsForMove(String provinceId, String targetId) {
+        Province p = getProvince(provinceId).orElse(null);
+        if (p == null) return 0;
+
+        int totalArmies = p.getArmyCount();
+
+        // Sum up all troops already committed to OTHER moves from this province
+        int committedArmies = queuedMoves.stream()
+                .filter(m -> m.fromId().equals(provinceId) && !m.toId().equals(targetId))
+                .mapToInt(Move::armies)
+                .sum();
+
+        return totalArmies - committedArmies;
+    }
+
+    // Update or remove a move safely
+    public void setMove(Move newMove) {
+        // Remove any existing move for this exact path
+        queuedMoves.removeIf(m -> m.fromId().equals(newMove.fromId()) && m.toId().equals(newMove.toId()));
+
+        // If the slider wasn't dragged to zero, add the new move
+        if (newMove.armies() > 0) {
+            queuedMoves.add(newMove);
+        }
+    }
+
     // --- Getters and Setters for Jackson ---
 
     public List<Player> getPlayers() { return players; }
