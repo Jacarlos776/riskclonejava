@@ -6,15 +6,78 @@ import com.mykogroup.riskclone.model.Player;
 import com.mykogroup.riskclone.model.Province;
 import com.mykogroup.riskclone.view.InteractiveMapPane;
 import com.mykogroup.riskclone.view.SvgMapLoader;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
 import javafx.application.Application;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
+import javafx.scene.control.Label;
 import javafx.scene.layout.StackPane;
+import javafx.scene.paint.Color;
 import javafx.scene.shape.SVGPath;
+import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
+import javafx.util.Duration;
 
 import java.util.Map;
 
 public class Main extends Application {
+
+    private int timeRemaining = 60;
+    private Timeline phaseTimer;
+
+    private void setupTimerUI(StackPane root, GameState masterState, InteractiveMapPane gameBoard) {
+        // 1. Create the visual label
+        Label timerLabel = new Label("Planning Phase: 60s");
+        timerLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
+        timerLabel.setTextFill(Color.WHITE);
+        timerLabel.setStyle("-fx-background-color: rgba(0,0,0,0.5); -fx-padding: 10px; -fx-background-radius: 5px;");
+
+        // 2. Align it to the Top Center of the screen
+        StackPane.setAlignment(timerLabel, Pos.TOP_CENTER);
+
+        // Push it down slightly so it's not flush with the window edge
+        timerLabel.setTranslateY(20);
+
+        // 3. Add it to the stationary root (above the gameBoard)
+        root.getChildren().add(timerLabel);
+
+        // 4. Create the Timeline logic
+        phaseTimer = new Timeline(
+                new KeyFrame(Duration.seconds(1), event -> {
+                    timeRemaining--;
+                    timerLabel.setText("Planning Phase: " + timeRemaining + "s");
+
+                    // Optional: Turn red when time is running out
+                    if (timeRemaining <= 10) {
+                        timerLabel.setTextFill(Color.RED);
+                    }
+                })
+        );
+
+        // Tell it to run exactly 60 times (for 60 seconds)
+        phaseTimer.setCycleCount(60);
+
+        // What happens when it hits 0?
+        phaseTimer.setOnFinished(event -> {
+            timerLabel.setText("RESOLUTION PHASE");
+            timerLabel.setTextFill(Color.GOLD);
+
+            // Lock the UI so players can't click during resolution
+            gameBoard.setDisable(true);
+
+            System.out.println("Time's up! Executing moves...");
+
+            // TODO: Call Resolution Engine here
+            // resolutionEngine.processTurn(masterState);
+            // gameBoard.renderState(masterState);
+        });
+
+        // Start the clock!
+        phaseTimer.play();
+    }
+
     @Override
     public void start(Stage stage) {
 
@@ -55,6 +118,9 @@ public class Main extends Application {
 
         // 5. Add map to root
         root.getChildren().add(gameBoard);
+
+        // --- Initialize the fixed timer HUD ---
+        setupTimerUI(root, masterState, gameBoard);
 
         // 6. Setup and show the Scene
         Scene scene = new Scene(root, 1280, 720);

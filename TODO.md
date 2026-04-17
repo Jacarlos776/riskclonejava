@@ -21,14 +21,15 @@ Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'e
   - [X] ~~Add a "Cancel Move" button or right-click to clear the `arrowLayer`. Maybe a drag animation from one province to another? idk whichever's easiest to implement~~ Update: when the user moves army count from one province to another to zero, the arrow just disappears
 - [X] **Troop Allocation UI:** Create a small JavaFX `HBox` or `Slider` that pops up when a move is queued to select the number of troops.
 
-- [ ] **Turn Timer:** Implement a `Timeline` or `AnimationTimer` for the 60-second countdown.
+- [X] **Turn Timer:** Implement a `Timeline` or `AnimationTimer` for the 60-second countdown.
 
-## MoSCoW
+## 🔴 MoSCoW
 
 ### Must Haves
 
 ### Should Haves
-- Redesign Arrow
+- Redesign Arrow: it looks terrible
+- Resolution Animation: Show all the moves made by the players, maybe make it province by province or something, to make it easier to see.
 ### Could Haves
 - Music and Mute button on top right
 - Color Picker/Wheel - let the players decide on their own colors
