@@ -3,6 +3,7 @@ package com.mykogroup.riskclone.view;
 import com.mykogroup.riskclone.engine.AdjacencyService;
 import com.mykogroup.riskclone.model.GameState;
 import com.mykogroup.riskclone.model.Move;
+import com.mykogroup.riskclone.model.Province;
 import javafx.geometry.Bounds;
 import javafx.scene.Group;
 import javafx.scene.input.MouseEvent;
@@ -13,6 +14,7 @@ import javafx.scene.shape.Line;
 import javafx.scene.shape.SVGPath;
 
 import java.util.Collection;
+import java.util.Optional;
 
 public class InteractiveMapPane extends Pane {
 
@@ -169,5 +171,30 @@ public class InteractiveMapPane extends Pane {
         this.setTranslateY(this.getTranslateY() - pivotY * (actualFactor - 1));
 
         event.consume();
+    }
+
+    // --- Sync View to State ---
+    public void renderState(GameState state) {
+        // Loop through all SVG paths currently in the province layer
+        for (var node : provinceLayer.getChildren()) {
+            if (node instanceof SVGPath svgPath) {
+                String provinceId = svgPath.getId();
+
+                // Find the matching province in the master state
+                Optional<Province> provinceData = state.getProvince(provinceId);
+
+                if (provinceData.isPresent()) {
+                    String ownerId = provinceData.get().getOwnerId();
+                    String newColor = ColorManager.getColorForPlayer(ownerId);
+
+                    // Update the node's memory of its base color
+                    svgPath.getProperties().put("baseColor", newColor);
+
+                    // Reapply the style (maintaining current selection status)
+                    boolean isSelected = (boolean) svgPath.getProperties().get("selected");
+                    svgPath.setStyle(SvgMapLoader.generateStyle(newColor, isSelected, false));
+                }
+            }
+        }
     }
 }

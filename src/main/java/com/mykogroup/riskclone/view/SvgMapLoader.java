@@ -15,11 +15,16 @@ import java.util.function.Consumer;
 
 public class SvgMapLoader {
 
-    // Define standard colors as constants for easy tweaking
-    public static final String STYLE_NORMAL = "-fx-fill: #c2d5a8; -fx-stroke: #555555; -fx-stroke-width: 1;";
-    public static final String STYLE_HOVER = "-fx-fill: #d3e5b9; -fx-stroke: #ffffff; -fx-stroke-width: 2.5;";
-    public static final String STYLE_SELECTED = "-fx-fill: #f4a460; -fx-stroke: #8b4513; -fx-stroke-width: 2;"; // Amber/Gold
-    public static final String STYLE_SELECTED_HOVER = "-fx-fill: #ffb470; -fx-stroke: #ffffff; -fx-stroke-width: 2.5;";
+    // We no longer use a static STYLE_NORMAL. We generate it dynamically.
+    public static String generateStyle(String hexFill, boolean isSelected, boolean isHovered) {
+        String strokeColor = isSelected ? "#ffffff" : "#555555"; // White border if selected
+        int strokeWidth = (isSelected || isHovered) ? 3 : 1;     // Thicker border if active
+
+        // If hovered but not selected, we might want to slightly lighten the base color.
+        // For now, we'll keep it simple and just rely on the thicker border to show hover.
+        return String.format("-fx-fill: %s; -fx-stroke: %s; -fx-stroke-width: %d;",
+                hexFill, strokeColor, strokeWidth);
+    }
 
     public static Map<String, SVGPath> loadMap(String resourcePath, Consumer<SVGPath> onProvinceClicked) {
         Map<String, SVGPath> provinceNodes = new HashMap<>();
@@ -37,19 +42,26 @@ public class SvgMapLoader {
                     SVGPath svgPath = new SVGPath();
                     svgPath.setContent(d);
                     svgPath.setId(id);
-                    svgPath.setStyle(STYLE_NORMAL);
-                    svgPath.getProperties().put("selected", false);
 
-                    // --- HOVER LOGIC ---
+                    // Initialize properties
+                    svgPath.getProperties().put("selected", false);
+                    svgPath.getProperties().put("baseColor", ColorManager.NEUTRAL_COLOR);
+
+                    // Set initial neutral style
+                    svgPath.setStyle(generateStyle(ColorManager.NEUTRAL_COLOR, false, false));
+
+                    // --- UPDATED HOVER LOGIC ---
                     svgPath.setOnMouseEntered(event -> {
                         boolean isSelected = (boolean) svgPath.getProperties().get("selected");
-                        svgPath.setStyle(isSelected ? STYLE_SELECTED_HOVER : STYLE_HOVER);
-                        svgPath.toFront(); // Always bring to front on hover so borders aren't hidden
+                        String baseColor = (String) svgPath.getProperties().get("baseColor");
+                        svgPath.setStyle(generateStyle(baseColor, isSelected, true));
+                        svgPath.toFront();
                     });
 
                     svgPath.setOnMouseExited(event -> {
                         boolean isSelected = (boolean) svgPath.getProperties().get("selected");
-                        svgPath.setStyle(isSelected ? STYLE_SELECTED : STYLE_NORMAL);
+                        String baseColor = (String) svgPath.getProperties().get("baseColor");
+                        svgPath.setStyle(generateStyle(baseColor, isSelected, false));
                     });
 
                     // --- CLICK LOGIC ---
@@ -72,6 +84,7 @@ public class SvgMapLoader {
     // Helper method to update a node's selection state cleanly
     public static void setNodeSelected(SVGPath node, boolean selected) {
         node.getProperties().put("selected", selected);
-        node.setStyle(selected ? STYLE_SELECTED : STYLE_NORMAL);
+        String baseColor = (String) node.getProperties().get("baseColor");
+        node.setStyle(generateStyle(baseColor, selected, false));
     }
 }

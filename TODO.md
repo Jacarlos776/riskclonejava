@@ -7,7 +7,7 @@ Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'e
 
 - [X] **Serialization:** Create the `GameState` POJO and test saving/loading the current state to a JSON file using Jackson.
 
-- [ ] **Owner-Based Styling:** Modify `SvgMapLoader` or `Main` to color provinces based on `ownerId` (e.g., Player 1 = Red, Player 2 = Blue).
+- [X] **Owner-Based Styling:** Modify `SvgMapLoader` or `Main` to color provinces based on `ownerId` (e.g., Player 1 = Red, Player 2 = Blue).
 
 ## 🟡 Phase 2: Gameplay UI & Interaction
 - [ ] **Troop Count Labels:** 
