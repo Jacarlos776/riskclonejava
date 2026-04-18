@@ -26,129 +26,20 @@ import javafx.util.Duration;
 import java.util.Map;
 
 public class Main extends Application {
+    // --- Class Variables for Game Loop ---
+    private Label timerLabel;
+    private Label playerTurnLabel;
+    private Label draftCountLabel; // NEW: Shows "Armies left: 5"
+    private Button endTurnBtn;
 
-    private int timeRemaining = 60;
     private Timeline phaseTimer;
+    private int timeRemaining;
     private int currentPlayerIndex = 0; // Tracks whose turn it is locally
-
-    private void setupTimerUI(StackPane root, GameState masterState, InteractiveMapPane gameBoard, ResolutionEngine resolutionEngine) {
-        // --- Timer Label ---
-        Label timerLabel = new Label("Planning Phase: 60s");
-        timerLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
-        timerLabel.setTextFill(Color.WHITE);
-        timerLabel.setStyle("-fx-background-color: rgba(0,0,0,0.5); -fx-padding: 10px; -fx-background-radius: 5px;");
-        StackPane.setAlignment(timerLabel, Pos.TOP_CENTER); // 2. Align it to the Top Center of the screen
-        timerLabel.setTranslateY(20); // Push it down slightly so it's not flush with the window edge
-
-        // --- The Current Player Indicator (Remove this later for Socket/Multiplayer) ---
-        Label playerTurnLabel = new Label("Current Player: " + masterState.getPlayers().get(0).getDisplayName());
-        playerTurnLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
-        playerTurnLabel.setTextFill(Color.WHITE);
-        playerTurnLabel.setStyle("-fx-background-color: rgba(0,0,0,0.5); -fx-padding: 5px; -fx-background-radius: 5px;");
-        StackPane.setAlignment(playerTurnLabel, Pos.TOP_LEFT);
-        playerTurnLabel.setTranslateY(20);
-        playerTurnLabel.setTranslateX(20);
-
-        // --- The End Turn Button ---
-        Button endTurnBtn = new Button("End Turn");
-        endTurnBtn.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-background-color: #f59e0b; -fx-text-fill: white;");
-        StackPane.setAlignment(endTurnBtn, Pos.TOP_RIGHT);
-        endTurnBtn.setTranslateY(20);
-        endTurnBtn.setTranslateX(-20);
-
-        // Add them all to root
-        root.getChildren().addAll(timerLabel, playerTurnLabel, endTurnBtn);
-
-        // --- Define the Resolution Trigger ---
-        // We pull this into a Runnable so we can call it from the timer OR the button
-        Runnable triggerResolution = () -> {
-            phaseTimer.stop(); // Stop the clock!
-            timerLabel.setText("RESOLUTION PHASE");
-            timerLabel.setTextFill(Color.GOLD);
-            endTurnBtn.setDisable(true);
-            gameBoard.setDisable(true); // Lock the board
-
-            System.out.println("Executing moves for all players...");
-
-            // 1. Process the math!
-            resolutionEngine.processTurn(masterState);
-
-            // 2. Erase the visual arrows from the previous phase
-            gameBoard.clearArrows();
-
-            // 3. Re-render the map with the new ownership and troop counts
-            gameBoard.renderState(masterState);
-
-            // 4. Reset for the next turn
-            // We use a small Timeline delay just so players can "see" the resolution phase
-            // for a few seconds before the next planning phase starts.
-            Timeline resetDelay = new Timeline(new KeyFrame(Duration.seconds(3), ev -> {
-                currentPlayerIndex = 0;
-                Player firstPlayer = masterState.getPlayers().get(currentPlayerIndex);
-                gameBoard.setCurrentLocalPlayerId(firstPlayer.getId());
-
-                playerTurnLabel.setText("Current Player: " + firstPlayer.getDisplayName());
-                timerLabel.setText("Planning Phase: 60s");
-                timerLabel.setTextFill(Color.WHITE);
-
-                timeRemaining = 60;
-                endTurnBtn.setDisable(false);
-                gameBoard.setDisable(false);
-                phaseTimer.playFromStart();
-            }));
-            resetDelay.play();
-        };
-
-        // --- Button Logic (Hotseat Passing) ---
-        endTurnBtn.setOnAction(e -> {
-            Player currentPlayer = masterState.getPlayers().get(currentPlayerIndex);
-            masterState.setPlayerReady(currentPlayer.getId());
-
-            System.out.println(currentPlayer.getDisplayName() + " is ready.");
-
-            if (masterState.areAllPlayersReady()) {
-                // Everyone is done! Skip the rest of the timer.
-                triggerResolution.run();
-            } else {
-                // Pass to the next player
-                currentPlayerIndex++;
-                Player nextPlayer = masterState.getPlayers().get(currentPlayerIndex);
-
-                // Update the map to queue moves for the new player
-                gameBoard.setCurrentLocalPlayerId(nextPlayer.getId());
-
-                // Update the UI
-                playerTurnLabel.setText("Current Player: " + nextPlayer.getDisplayName());
-            }
-        });
-
-        // --- Timeline Logic ---
-        phaseTimer = new Timeline(
-                new KeyFrame(Duration.seconds(1), event -> {
-                    timeRemaining--;
-                    timerLabel.setText("Planning Phase: " + timeRemaining + "s");
-
-                    // Optional: Turn red when time is running out
-                    if (timeRemaining <= 10) {
-                        timerLabel.setTextFill(Color.RED);
-                    }
-                })
-        );
-
-        // Tell it to run exactly 60 times (for 60 seconds)
-        phaseTimer.setCycleCount(60);
-        phaseTimer.setOnFinished(event -> triggerResolution.run());
-        phaseTimer.play();
-
-        // Start the clock!
-        phaseTimer.play();
-    }
 
     @Override
     public void start(Stage stage) {
 
         AdjacencyService adjacencyService = new AdjacencyService("/com/mykogroup/riskclone/province.json");
-        ResolutionEngine resolutionEngine = new ResolutionEngine();
         GameState masterState = new GameState();
 
         // 1. Create the board first so we can pass its click-handler to the loader
@@ -186,8 +77,11 @@ public class Main extends Application {
         // 5. Add map to root
         root.getChildren().add(gameBoard);
 
-        // --- Initialize the fixed timer HUD ---
-        setupTimerUI(root, masterState, gameBoard, resolutionEngine);
+        // Build the persistent UI
+        initUI(root, masterState, gameBoard);
+
+        // Kick off the infinite game loop starting with Drafting!
+        startDraftingPhase(masterState, gameBoard);
 
         // 6. Setup and show the Scene
         Scene scene = new Scene(root, 1280, 720);
@@ -195,5 +89,138 @@ public class Main extends Application {
         stage.setTitle("Title here");
         stage.setScene(scene);
         stage.show();
+    }
+
+    // --- 1. BUILD THE UI ONCE ---
+    private void initUI(StackPane root, GameState masterState, InteractiveMapPane gameBoard) {
+        timerLabel = new Label();
+        timerLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
+        timerLabel.setTextFill(Color.WHITE);
+        timerLabel.setStyle("-fx-background-color: rgba(0,0,0,0.5); -fx-padding: 10px; -fx-background-radius: 5px;");
+        StackPane.setAlignment(timerLabel, Pos.TOP_CENTER);
+        timerLabel.setTranslateY(20);
+
+        playerTurnLabel = new Label();
+        playerTurnLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
+        playerTurnLabel.setTextFill(Color.WHITE);
+        playerTurnLabel.setStyle("-fx-background-color: rgba(0,0,0,0.5); -fx-padding: 5px; -fx-background-radius: 5px;");
+        StackPane.setAlignment(playerTurnLabel, Pos.TOP_LEFT);
+        playerTurnLabel.setTranslateY(20);
+        playerTurnLabel.setTranslateX(20);
+
+        draftCountLabel = new Label();
+        draftCountLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
+        draftCountLabel.setTextFill(Color.GOLD);
+        draftCountLabel.setStyle("-fx-background-color: rgba(0,0,0,0.8); -fx-padding: 5px; -fx-background-radius: 5px;");
+        StackPane.setAlignment(draftCountLabel, Pos.TOP_LEFT);
+        draftCountLabel.setTranslateY(60); // Place below player name
+        draftCountLabel.setTranslateX(20);
+
+        endTurnBtn = new Button("End Turn");
+        endTurnBtn.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-background-color: #f59e0b; -fx-text-fill: white;");
+        StackPane.setAlignment(endTurnBtn, Pos.TOP_RIGHT);
+        endTurnBtn.setTranslateY(20);
+        endTurnBtn.setTranslateX(-20);
+
+        root.getChildren().addAll(timerLabel, playerTurnLabel, draftCountLabel, endTurnBtn);
+
+        // Set the callback so clicking the map updates the Draft Label
+        gameBoard.setOnDraftAction(() -> {
+            String pId = masterState.getPlayers().get(currentPlayerIndex).getId();
+            draftCountLabel.setText("Armies left: " + masterState.getDraftArmies(pId));
+        });
+    }
+
+    // --- THE DRAFTING PHASE ---
+    private void startDraftingPhase(GameState masterState, InteractiveMapPane gameBoard) {
+        masterState.setCurrentPhase(GameState.GamePhase.DRAFTING);
+        masterState.initDraftPools(5); // Give everyone 5 troops
+        masterState.resetReadyStates();
+
+        currentPlayerIndex = 0;
+        timeRemaining = 20; // 20 Second Draft
+        gameBoard.setDisable(false);
+        endTurnBtn.setDisable(false);
+        draftCountLabel.setVisible(true);
+
+        updatePlayerTurnUI(masterState, gameBoard);
+
+        // Setup End Turn button for Drafting
+        endTurnBtn.setOnAction(e -> handleHotseatPass(masterState, gameBoard, () -> startPlanningPhase(masterState, gameBoard)));
+
+        startTimer("Drafting", () -> startPlanningPhase(masterState, gameBoard));
+    }
+
+    // --- THE PLANNING PHASE ---
+    private void startPlanningPhase(GameState masterState, InteractiveMapPane gameBoard) {
+        masterState.setCurrentPhase(GameState.GamePhase.PLANNING);
+        masterState.resetReadyStates();
+
+        currentPlayerIndex = 0;
+        timeRemaining = 60; // 60 Second Planning
+        draftCountLabel.setVisible(false); // Hide the draft tracker
+
+        updatePlayerTurnUI(masterState, gameBoard);
+
+        // Setup End Turn button for Planning
+        endTurnBtn.setOnAction(e -> handleHotseatPass(masterState, gameBoard, () -> triggerResolutionPhase(masterState, gameBoard)));
+
+        startTimer("Planning", () -> triggerResolutionPhase(masterState, gameBoard));
+    }
+
+    // --- THE RESOLUTION PHASE ---
+    private void triggerResolutionPhase(GameState masterState, InteractiveMapPane gameBoard) {
+        if (phaseTimer != null) phaseTimer.stop();
+
+        masterState.setCurrentPhase(GameState.GamePhase.RESOLUTION);
+        timerLabel.setText("RESOLUTION PHASE");
+        timerLabel.setTextFill(Color.GOLD);
+        endTurnBtn.setDisable(true);
+        gameBoard.setDisable(true);
+
+        System.out.println("Processing Combat...");
+        new ResolutionEngine().processTurn(masterState);
+
+        gameBoard.clearArrows();
+        gameBoard.renderState(masterState);
+
+        // Wait 3 seconds to show results, then loop back to Drafting
+        new Timeline(new KeyFrame(Duration.seconds(3), ev -> {
+            startDraftingPhase(masterState, gameBoard);
+        })).play();
+    }
+
+    // --- HELPER METHODS ---
+    private void handleHotseatPass(GameState masterState, InteractiveMapPane gameBoard, Runnable onAllReady) {
+        Player currentPlayer = masterState.getPlayers().get(currentPlayerIndex);
+        masterState.setPlayerReady(currentPlayer.getId());
+
+        if (masterState.areAllPlayersReady()) {
+            onAllReady.run(); // Move to the next phase
+        } else {
+            currentPlayerIndex++;
+            updatePlayerTurnUI(masterState, gameBoard);
+        }
+    }
+
+    private void updatePlayerTurnUI(GameState masterState, InteractiveMapPane gameBoard) {
+        Player p = masterState.getPlayers().get(currentPlayerIndex);
+        gameBoard.setCurrentLocalPlayerId(p.getId());
+        playerTurnLabel.setText("Current Player: " + p.getDisplayName());
+        draftCountLabel.setText("Armies left: " + masterState.getDraftArmies(p.getId()));
+    }
+
+    private void startTimer(String phaseName, Runnable onComplete) {
+        if (phaseTimer != null) phaseTimer.stop();
+        timerLabel.setTextFill(Color.WHITE);
+
+        phaseTimer = new Timeline(new KeyFrame(Duration.seconds(1), event -> {
+            timeRemaining--;
+            timerLabel.setText(phaseName + " Phase: " + timeRemaining + "s");
+            if (timeRemaining <= 5) timerLabel.setTextFill(Color.RED);
+        }));
+        phaseTimer.setCycleCount(timeRemaining);
+        phaseTimer.setOnFinished(event -> onComplete.run());
+        phaseTimer.playFromStart();
     }
 }
