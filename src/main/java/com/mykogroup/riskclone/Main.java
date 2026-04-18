@@ -17,7 +17,11 @@ import javafx.scene.Group;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.SVGPath;
 import javafx.scene.text.Font;
@@ -30,6 +34,7 @@ import java.util.Map;
 
 public class Main extends Application {
     // --- Class Variables for Game Loop ---
+    private Scene mainScene; // Tracks the main window scene
     private Label timerLabel;
     private Label playerTurnLabel;
     private Label draftCountLabel; // NEW: Shows "Armies left: 5"
@@ -42,6 +47,7 @@ public class Main extends Application {
     @Override
     public void start(Stage stage) {
 
+        // Initialize the Engine and Board
         AdjacencyService adjacencyService = new AdjacencyService("/com/mykogroup/riskclone/province.json");
         GameState masterState = new GameState();
 
@@ -91,14 +97,86 @@ public class Main extends Application {
         startDraftingPhase(masterState, gameBoard);
 
         // 6. Setup and show the Scene
-        Scene scene = new Scene(root, 1280, 720);
+        mainScene = new Scene(new Pane(), 1280, 720); // Placeholder root
 
         stage.setTitle("Title here");
-        stage.setScene(scene);
+        stage.setScene(mainScene);
+
+        // Show lobby menu
+        showSetupMenu(masterState, gameBoard);
+
         stage.show();
     }
 
-    // --- 1. BUILD THE UI ONCE ---
+    // --- PRE-GAME MENU ---
+    private void showSetupMenu(GameState masterState, InteractiveMapPane gameBoard) {
+        VBox menuRoot = new VBox(20);
+        menuRoot.setAlignment(Pos.CENTER);
+        menuRoot.setStyle("-fx-background-color: #2c3e50;");
+
+        Label titleLabel = new Label("Game Setup");
+        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 48));
+        titleLabel.setTextFill(Color.WHITE);
+
+        // Player 1 Input
+        HBox p1Box = new HBox(10);
+        p1Box.setAlignment(Pos.CENTER);
+        Label p1Label = new Label("Player 1 Name:");
+        p1Label.setFont(Font.font(18));
+        p1Label.setTextFill(Color.web("#ef4444"));
+        TextField p1Input = new TextField("Joshua");
+        p1Input.setFont(Font.font(16));
+        p1Box.getChildren().addAll(p1Label, p1Input);
+
+        // Player 2 Input
+        HBox p2Box = new HBox(10);
+        p2Box.setAlignment(Pos.CENTER);
+        Label p2Label = new Label("Player 2 Name:");
+        p2Label.setFont(Font.font(18));
+        p2Label.setTextFill(Color.web("#3b82f6"));
+        TextField p2Input = new TextField("Enemy AI");
+        p2Input.setFont(Font.font(16));
+        p2Box.getChildren().addAll(p2Label, p2Input);
+
+        // Start Button
+        Button startBtn = new Button("Start Game");
+        startBtn.setStyle("-fx-font-size: 20px; -fx-font-weight: bold; -fx-background-color: #27ae60; -fx-text-fill: white; -fx-padding: 10 30;");
+
+        startBtn.setOnAction(e -> {
+            // 1. Save the customized players into the GameState
+            masterState.getPlayers().clear();
+            masterState.getPlayers().add(new Player("player1", p1Input.getText()));
+            masterState.getPlayers().add(new Player("player2", p2Input.getText()));
+
+            // 2. Transition to the Game Board
+            launchGameView(masterState, gameBoard);
+        });
+
+        menuRoot.getChildren().addAll(titleLabel, p1Box, p2Box, startBtn);
+        mainScene.setRoot(menuRoot); // Attach menu to the window
+    }
+
+    // --- GAME LAUNCHER ---
+    private void launchGameView(GameState masterState, InteractiveMapPane gameBoard) {
+        // 1. Build the game container
+        StackPane gameRoot = new StackPane();
+        gameRoot.setStyle("-fx-background-color: #add8e6;"); // Ocean background
+        gameRoot.getChildren().add(gameBoard);
+
+        // 2. Apply initial state to the map
+        gameBoard.renderState(masterState);
+
+        // 3. Initialize the fixed HUD (Timers, Buttons)
+        initUI(gameRoot, masterState, gameBoard);
+
+        // 4. Swap the window out to show the game
+        mainScene.setRoot(gameRoot);
+
+        // 5. Start the Game Loop!
+        startDraftingPhase(masterState, gameBoard);
+    }
+
+    // --- BUILDS THE UI ONCE ---
     private void initUI(StackPane root, GameState masterState, InteractiveMapPane gameBoard) {
         timerLabel = new Label();
         timerLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
@@ -138,7 +216,8 @@ public class Main extends Application {
         });
     }
 
-    // --- THE DRAFTING PHASE ---
+    // === GAME PHASES ===
+    // DRAFTING PHASE
     private void startDraftingPhase(GameState masterState, InteractiveMapPane gameBoard) {
         masterState.setCurrentPhase(GameState.GamePhase.DRAFTING);
         masterState.initDraftPools(5); // Give everyone 5 troops
@@ -158,7 +237,7 @@ public class Main extends Application {
         startTimer("Drafting", () -> startPlanningPhase(masterState, gameBoard));
     }
 
-    // --- THE PLANNING PHASE ---
+    // PLANNING PHASE
     private void startPlanningPhase(GameState masterState, InteractiveMapPane gameBoard) {
         masterState.setCurrentPhase(GameState.GamePhase.PLANNING);
         masterState.resetReadyStates();
@@ -175,7 +254,7 @@ public class Main extends Application {
         startTimer("Planning", () -> triggerResolutionPhase(masterState, gameBoard));
     }
 
-    // --- THE RESOLUTION PHASE ---
+    // RESOLUTION PHASE
     private void triggerResolutionPhase(GameState masterState, InteractiveMapPane gameBoard) {
         if (phaseTimer != null) phaseTimer.stop();
 

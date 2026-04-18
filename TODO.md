@@ -36,7 +36,9 @@ Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'e
 - [X] **Drafting Phase:** Allow players to allocate their armies
   - [X] **Number of province army allocation:** Depending on how many provinces they control, give them a certain amount of armies
 - [X] **Region Bonus:** Give 'em more armies if they control regions
-
+- [X] **Menu Scene:** Scene before the actual gameplay,
+  - [ ] **Color Wheel:** Allow the player to change their color
+  - [ ] **Initial Province:** Allow the player to choose their initial province
 
 ## 🔴 MoSCoW
 
