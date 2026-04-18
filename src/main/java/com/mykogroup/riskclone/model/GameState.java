@@ -154,11 +154,28 @@ public class GameState {
     }
 
     public boolean areAllPlayersReady() {
-        return !players.isEmpty() && readyPlayers.size() >= players.size();
+        List<Player> alivePlayers = getAlivePlayers();
+        if (alivePlayers.isEmpty()) return false;
+
+        // Check if every ALIVE player has clicked "End Turn"
+        return alivePlayers.stream().allMatch(p -> readyPlayers.contains(p.getId()));
     }
 
     public void resetReadyStates() {
         readyPlayers.clear();
+    }
+
+    // --- Survival Checks ---
+    public boolean isPlayerAlive(String playerId) {
+        // Nobody is dead during the claiming phase
+        if (currentPhase == GamePhase.CLAIMING) return true;
+
+        // Otherwise, they must own at least 1 province to stay in the game
+        return provinces.stream().anyMatch(p -> playerId.equals(p.getOwnerId()));
+    }
+
+    public List<Player> getAlivePlayers() {
+        return players.stream().filter(p -> isPlayerAlive(p.getId())).toList();
     }
 
     // --- Getters and Setters for Jackson ---

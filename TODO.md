@@ -40,7 +40,7 @@ Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'e
   - [X] **Color Wheel:** Allow the player to change their color
   - [X] **Initial Province:** Allow the player to choose their initial province
   - [X] **Add Players:** Allow them to add and remove players
-
+- [X] **Win & Lose Condition:** Player loses and is not iterated upon anymore when he has no territories left and a player wins when he's the only player left with territory
 ## 🔴 MoSCoW
 
 ### Must Haves

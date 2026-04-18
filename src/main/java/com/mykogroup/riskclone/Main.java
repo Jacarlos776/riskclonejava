@@ -53,26 +53,32 @@ public class Main extends Application {
 
     @Override
     public void start(Stage stage) {
+        mainScene = new Scene(new Pane(), 1280, 720);
+        stage.setTitle("Simultaneous Turn Strategy - MVP");
+        stage.setScene(mainScene);
+
+        resetGameToMenu(); // Boots the game cleanly!
+
+        stage.show();
+    }
+
+    // Completely builds a fresh board and state, destroying the old one
+    private void resetGameToMenu() {
+        if (phaseTimer != null) {
+            phaseTimer.stop();
+        }
 
         // Initialize the Engine and Board
         AdjacencyService adjacencyService = new AdjacencyService("/com/mykogroup/riskclone/province.json");
         GameState masterState = new GameState();
-
-        // --- Load and inject the regions ---
-        List<Region> loadedRegions = RegionLoader.loadRegions("/com/mykogroup/riskclone/region.json");
-        masterState.setRegions(loadedRegions);
-
-        // 1. Create the board first so we can pass its click-handler to the loader
         InteractiveMapPane gameBoard = new InteractiveMapPane(adjacencyService, masterState);
 
-        // 2. Load the map nodes, passing in gameBoard::handleProvinceClick, then add al SVG nodes to the Pane
         Map<String, SVGPath> mapNodes = SvgMapLoader.loadMap("/com/mykogroup/riskclone/map.svg", gameBoard::handleProvinceClick);
         gameBoard.addProvinces(mapNodes.values());
 
-        // Pass gameState to InteractiveMapPane
-        gameBoard.setGameState(masterState);
+        masterState.setRegions(RegionLoader.loadRegions("/com/mykogroup/riskclone/region.json"));
 
-        // Add all 81 provinces as neutral first
+        // Setup provinces as neutral first
         for (String id : mapNodes.keySet()) {
             masterState.getProvinces().add(new Province(id, null, 0));
         }
@@ -80,25 +86,9 @@ public class Main extends Application {
         // Bind the UI to the State
         gameBoard.renderState(masterState);
 
-        // 4. Create static root layout for ocean background
-        StackPane root = new StackPane();
-        root.setStyle("-fx-background-color: #add8e6;");
-
-        // 5. Add map to root
-        root.getChildren().add(gameBoard);
-
-        // 6. Setup and show the Scene
-        mainScene = new Scene(new Pane(), 1280, 720); // Placeholder root
-
-        stage.setTitle("Title here");
-        stage.setScene(mainScene);
-
-        // Show lobby menu
+        // Send user to lobby
         showSetupMenu(masterState, gameBoard);
-
-        stage.show();
     }
-
     // --- PRE-GAME MENU ---
     private void showSetupMenu(GameState masterState, InteractiveMapPane gameBoard) {
         VBox menuRoot = new VBox(20);
@@ -309,10 +299,54 @@ public class Main extends Application {
         gameBoard.clearArrows();
         gameBoard.renderState(masterState);
 
-        // Wait 3 seconds to show results, then loop back to Drafting
-        new Timeline(new KeyFrame(Duration.seconds(3), ev -> {
-            startDraftingPhase(masterState, gameBoard);
-        })).play();
+        List<Player> survivors = masterState.getAlivePlayers();
+
+        if (survivors.size() == 1) {
+            // WINNEr
+            showGameOverScreen(survivors.get(0));
+        } else if (survivors.isEmpty()) {
+            // Extremely rare edge case: Mutual destruction of the last two players
+            showGameOverScreen(null);
+        } else {
+            // The war continues... loop back to Drafting Phase.
+            new Timeline(new KeyFrame(Duration.seconds(3), ev -> {
+                startDraftingPhase(masterState, gameBoard);
+            })).play();
+        }
+    }
+
+    // --- Victory Screen ---
+    private void showGameOverScreen(Player winner) {
+        VBox gameOverOverlay = new VBox(20);
+        gameOverOverlay.setAlignment(Pos.CENTER);
+        gameOverOverlay.setStyle("-fx-background-color: rgba(0, 0, 0, 0.85);"); // Dark fade over the map
+
+        Label title = new Label("GAME OVER");
+        title.setFont(Font.font("System", FontWeight.BOLD, 64));
+        title.setTextFill(Color.WHITE);
+
+        Label subTitle = new Label();
+        subTitle.setFont(Font.font("System", FontWeight.BOLD, 32));
+        if (winner != null) {
+            subTitle.setText(winner.getDisplayName() + " has conquered the map!");
+            subTitle.setTextFill(Color.web(ColorManager.getColorForPlayer(winner.getId())));
+        } else {
+            subTitle.setText("Total Annihilation. No victors remain.");
+            subTitle.setTextFill(Color.GRAY);
+        }
+
+        Button playAgainBtn = new Button("Play Again");
+        playAgainBtn.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-background-color: #27ae60; -fx-text-fill: white; -fx-padding: 15 40;");
+
+        // Triggers the factory reset!
+        playAgainBtn.setOnAction(e -> resetGameToMenu());
+
+        gameOverOverlay.getChildren().addAll(title, subTitle, playAgainBtn);
+
+        // Assuming mainScene.getRoot() is currently your gameRoot (StackPane)
+        if (mainScene.getRoot() instanceof StackPane root) {
+            root.getChildren().add(gameOverOverlay);
+        }
     }
 
     // --- HELPER METHODS ---
@@ -321,9 +355,14 @@ public class Main extends Application {
         masterState.setPlayerReady(currentPlayer.getId());
 
         if (masterState.areAllPlayersReady()) {
-            onAllReady.run(); // Move to the next phase
+            onAllReady.run();
         } else {
-            currentPlayerIndex++;
+            // Loop forward until we find the next ALIVE player
+            do {
+                currentPlayerIndex++;
+            } while (currentPlayerIndex < masterState.getPlayers().size() &&
+                    !masterState.isPlayerAlive(masterState.getPlayers().get(currentPlayerIndex).getId()));
+
             updatePlayerTurnUI(masterState, gameBoard);
         }
     }
