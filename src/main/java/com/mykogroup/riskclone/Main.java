@@ -1,10 +1,12 @@
 package com.mykogroup.riskclone;
 
 import com.mykogroup.riskclone.engine.AdjacencyService;
+import com.mykogroup.riskclone.engine.RegionLoader;
 import com.mykogroup.riskclone.engine.ResolutionEngine;
 import com.mykogroup.riskclone.model.GameState;
 import com.mykogroup.riskclone.model.Player;
 import com.mykogroup.riskclone.model.Province;
+import com.mykogroup.riskclone.model.Region;
 import com.mykogroup.riskclone.view.InteractiveMapPane;
 import com.mykogroup.riskclone.view.SvgMapLoader;
 import javafx.animation.KeyFrame;
@@ -23,6 +25,7 @@ import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
+import java.util.List;
 import java.util.Map;
 
 public class Main extends Application {
@@ -41,6 +44,10 @@ public class Main extends Application {
 
         AdjacencyService adjacencyService = new AdjacencyService("/com/mykogroup/riskclone/province.json");
         GameState masterState = new GameState();
+
+        // --- Load and inject the regions ---
+        List<Region> loadedRegions = RegionLoader.loadRegions("/com/mykogroup/riskclone/region.json");
+        masterState.setRegions(loadedRegions);
 
         // 1. Create the board first so we can pass its click-handler to the loader
         InteractiveMapPane gameBoard = new InteractiveMapPane(adjacencyService, masterState);

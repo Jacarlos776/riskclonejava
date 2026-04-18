@@ -5,6 +5,8 @@ Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'e
 ## 🟢 Phase 1: Data & Core Model
 - [ ] **PROVINCE MAPPING:** Complete the `province.json` adjacency list for all 81 provinces. Make sure to give isolated islands adjacencies as well so they're not useless.
 
+- [ ] **REGION JSON** Complete the `region.json` list for all 18 regions, grouping the provinces by regions, and giving them bonus armies
+
 - [X] **Serialization:** Create the `GameState` POJO and test saving/loading the current state to a JSON file using Jackson.
 
 - [X] **Owner-Based Styling:** Modify `SvgMapLoader` or `Main` to color provinces based on `ownerId` (e.g., Player 1 = Red, Player 2 = Blue).
@@ -30,10 +32,10 @@ Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'e
   - [X] **Bonus Phase 4 TIE-BREAKER:** If army is an exact match, defender has advantage, else if two attackers are tied while invading an empty or third party province, they annihilate each other, nobody gets the province.
 
 ## 🔵 Phase 3: idk
-- [ ] **Initial drafting:** Create an initial phase where players can pick a region to place their initial armies
+- [X] **Initial drafting:** Create an initial phase where players can pick a region to place their initial armies
 - [X] **Drafting Phase:** Allow players to allocate their armies
-  - [ ] **Number of province army allocation:** Depending on how many provinces they control, give them a certain amount of armies
-- [ ]
+  - [X] **Number of province army allocation:** Depending on how many provinces they control, give them a certain amount of armies
+- [X] **Region Bonus:** Give 'em more armies if they control regions
 
 
 ## 🔴 MoSCoW
@@ -51,4 +53,5 @@ Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'e
 - Combat Modifier: Add a lil bit of randomness to the resolution phase by giving armies +/- 10% combat efficiency roll, letting smaller armies potentially beat larger ones.
 - Menu Stage before the actual game. Could add here the colorwheel and joining the host server by inputting port, etc. If we have a color wheel, should appear after joining the host, and we should be able to see what colors other players chose/are choosing.
 - In the initial phase, allow players to pick more than 1 province, 
+- Change draft allocation to use a slider instead of tapping
 ### Won't Haves

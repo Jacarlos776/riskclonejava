@@ -1,0 +1,55 @@
+[
+  {
+    "name": "Ilocos",
+    "bonusArmies": 3,
+    "provinces": [
+      "PH-ILN",
+      "PH-ILS",
+      "PH-LUN",
+      "PH-PAN"
+    ]
+  },
+  {
+    "name": "Cordillera",
+    "bonusArmies": 4,
+    "provinces": [
+      "PH-APA",
+      "PH-ABR",
+      "PH-KAL",
+      "PH-MOU",
+      "PH-IFU",
+      "PH-BEN"
+    ]
+  },
+  {
+    "name": "Cagayan Valley",
+    "bonusArmies": 3,
+    "provinces": [
+      "PH-CAG",
+      "PH-ISA",
+      "PH-QUI",
+      "PH-NUV",
+      "PH-BTN"
+    ]
+  },
+  {
+    "name": "Central Luzon",
+    "bonusArmies": 6,
+    "provinces": [
+      "PH-BAN",
+      "PH-PAM",
+      "PH-ZMB",
+      "PH-TAR",
+      "PH-NUE",
+      "PH-BUL",
+      "PH-AUR"
+    ]
+  },
+  {
+    "name": "National Capital",
+    "bonusArmies": 2,
+    "provinces": [
+      "PH-MNL"
+    ]
+  }
+]

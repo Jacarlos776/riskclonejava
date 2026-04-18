@@ -1,5 +1,12 @@
 {
   "PH-BTN": ["PH-CAG"],
   "PH-CAG": ["PH-BTN", "PH-APA", "PH-ILN", "PH-ISA", "PH-KAL"],
-  "PH-ILN": ["PH-CAG", "PH-APA", "PH-ABR", "PH-ILS"]
+  "PH-ILN": ["PH-CAG", "PH-APA", "PH-ABR", "PH-ILS"],
+  "PH-APA": ["PH-ILN", "PH-CAG", "PH-ABR", "PH-KAL"],
+  "PH-ISA": ["PH-CAG", "PH-KAL", "PH-MOU", "PH-IFU", "PH-NUV", "PH-QUI", "PH-AUR"],
+  "PH-ILS": ["PH-ILN", "PH-ABR", "PH-MOU", "PH-BEN", "PH-LUN"],
+  "PH-ABR": ["PH-ILS", "PH-ILN", "PH-APA", "PH-KAL", "PH-MOU"],
+  "PH-KAL": ["PH-ABR", "PH-APA", "PH-MOU", "PH-ISA", "PH-CAG"],
+  "PH-QUI": ["PH-NUV", "PH-IFU", "PH-ISA", "PH-AUR"],
+  "PH-NUV": ["PH-NUE", "PH-PAN", "PH-BEN", "PH-IFU", "PH-ISA", "PH-QUI", "PH-AUR"]
 }

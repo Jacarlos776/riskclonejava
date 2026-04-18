@@ -10,6 +10,6 @@ module com.mykogroup.riskclone {
 
     opens com.mykogroup.riskclone to javafx.fxml;
     opens com.mykogroup.riskclone.engine to com.fasterxml.jackson.databind;
-
+    opens com.mykogroup.riskclone.model to com.fasterxml.jackson.databind;
     exports com.mykogroup.riskclone;
 }

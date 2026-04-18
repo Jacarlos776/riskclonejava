@@ -16,16 +16,57 @@ public class GameState {
     private List<Province> provinces = new ArrayList<>();
     private List<Move> queuedMoves = new ArrayList<>();
     private final Set<String> readyPlayers = new HashSet<>();
+    private List<Region> regions = new ArrayList<>();
 
     // Default constructor for Jackson
     public GameState() {}
 
     // --- Core State Manipulations ---
 
+    // --- Calculate Draft Phase Incomes ---
+    public int calculateDraftIncome(String playerId) {
+        int baseIncome = 5; // Everyone gets a base of 5 troops
+        int regionBonus = 0;
+
+        // Loop through all regions on the map
+        for (Region region : regions) {
+            boolean ownsEntireRegion = true;
+
+            // Check if the player owns every province in this specific region
+            for (String provinceId : region.getProvinces()) {
+                Optional<Province> p = getProvince(provinceId);
+
+                // If the province is unowned, or owned by someone else, they fail the check
+                if (p.isEmpty() || !playerId.equals(p.get().getOwnerId())) {
+                    ownsEntireRegion = false;
+                }
+            }
+
+            // If they survived the loop, they own it! Award the bonus.
+            if (ownsEntireRegion) {
+                regionBonus += region.getBonusArmies();
+                System.out.println(playerId + " controls " + region.getName() + "! (+ " + region.getBonusArmies() + " armies)");
+            }
+        }
+
+        // Province Count Bonus
+        long provinceCount = provinces.stream()
+                .filter(p -> playerId.equals(p.getOwnerId()))
+                .count();
+
+        int sprawlBonus = (int) (provinceCount / 2); // Each player gets a bonus 0.5 army per province they own rounded down
+
+        int totalIncome = baseIncome + regionBonus + sprawlBonus;
+
+        System.out.println(playerId + " Draft Income: Base(" + baseIncome + ") + Sprawl(" + sprawlBonus + ") + Regions(" + regionBonus + ") = " + totalIncome);
+        return totalIncome;
+    }
+
     // Call this at the start of every draft phase
     public void initDraftPools(int armiesPerPlayer) {
         for (Player p : players) {
-            draftPools.put(p.getId(), armiesPerPlayer);
+            int earnedArmies = calculateDraftIncome(p.getId());
+            draftPools.put(p.getId(), earnedArmies);
         }
     }
 
@@ -107,6 +148,8 @@ public class GameState {
 
     public List<Move> getQueuedMoves() { return queuedMoves; }
     public void setQueuedMoves(List<Move> queuedMoves) { this.queuedMoves = queuedMoves; }
+
+    public void setRegions(List<Region> regions) { this.regions = regions; }
 
     public void setPlayerReady(String playerId) {
         readyPlayers.add(playerId);
