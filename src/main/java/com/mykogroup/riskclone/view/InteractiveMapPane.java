@@ -115,7 +115,19 @@ public class InteractiveMapPane extends Pane {
 
         String clickedId = clickedNode.getId();
 
-        // --- DRAFTING PHASE INTERCEPT ---
+        // --- CLAIMING PHASE ---
+        if (gameState.getCurrentPhase() == GameState.GamePhase.CLAIMING) {
+            boolean claimed = gameState.claimStartingProvince(currentLocalPlayerId, clickedId);
+            if (claimed) {
+                // Instantly sync the visuals
+                renderState(gameState);
+            } else {
+                System.out.println("Cannot claim this province. It belongs to an enemy!");
+            }
+            return; // Exit method
+        }
+
+        // --- DRAFTING PHASE ---
         if (gameState.getCurrentPhase() == GameState.GamePhase.DRAFTING) {
             boolean placed = gameState.placeDraftArmy(currentLocalPlayerId, clickedId);
             if (placed) {

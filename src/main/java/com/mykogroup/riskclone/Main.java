@@ -13,7 +13,6 @@ import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Application;
 import javafx.geometry.Pos;
-import javafx.scene.Group;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -65,20 +64,10 @@ public class Main extends Application {
         // Pass gameState to InteractiveMapPane
         gameBoard.setGameState(masterState);
 
-        // 3. Add players to GameState
-        masterState.getPlayers().add(new Player("player1", "Joshua"));
-        masterState.getPlayers().add(new Player("player2", "Enemy AI"));
-
         // Add all 81 provinces as neutral first
         for (String id : mapNodes.keySet()) {
             masterState.getProvinces().add(new Province(id, null, 0));
         }
-
-        // Claim a few specific provinces for testing
-        masterState.getProvince("PH-BTN").ifPresent(p -> { p.setOwnerId("player1"); p.setArmyCount(10); });
-        masterState.getProvince("PH-CAG").ifPresent(p -> { p.setOwnerId("player1"); p.setArmyCount(5); });
-
-        masterState.getProvince("PH-ILN").ifPresent(p -> { p.setOwnerId("player2"); p.setArmyCount(20); });
 
         // Bind the UI to the State
         gameBoard.renderState(masterState);
@@ -89,12 +78,6 @@ public class Main extends Application {
 
         // 5. Add map to root
         root.getChildren().add(gameBoard);
-
-        // Build the persistent UI
-        initUI(root, masterState, gameBoard);
-
-        // Kick off the infinite game loop starting with Drafting!
-        startDraftingPhase(masterState, gameBoard);
 
         // 6. Setup and show the Scene
         mainScene = new Scene(new Pane(), 1280, 720); // Placeholder root
@@ -173,7 +156,7 @@ public class Main extends Application {
         mainScene.setRoot(gameRoot);
 
         // 5. Start the Game Loop!
-        startDraftingPhase(masterState, gameBoard);
+        startClaimingPhase(masterState, gameBoard);
     }
 
     // --- BUILDS THE UI ONCE ---
@@ -209,14 +192,55 @@ public class Main extends Application {
 
         root.getChildren().addAll(timerLabel, playerTurnLabel, draftCountLabel, endTurnBtn);
 
-        // Set the callback so clicking the map updates the Draft Label
+        // Set the callback so clicking the map updates the UI safely
         gameBoard.setOnDraftAction(() -> {
-            String pId = masterState.getPlayers().get(currentPlayerIndex).getId();
-            draftCountLabel.setText("Armies left: " + masterState.getDraftArmies(pId));
+            updatePlayerTurnUI(masterState, gameBoard);
         });
     }
 
     // === GAME PHASES ===
+    // CLAIMING PHASE
+    private void startClaimingPhase(GameState masterState, InteractiveMapPane gameBoard) {
+        masterState.setCurrentPhase(GameState.GamePhase.CLAIMING);
+        masterState.resetReadyStates();
+        currentPlayerIndex = 0;
+
+        // Stop the clock (Claiming has no time limit)
+        if (phaseTimer != null) phaseTimer.stop();
+        timerLabel.setText("Claiming Phase");
+        timerLabel.setTextFill(Color.GOLD);
+
+        // Repurpose the draft label to give instructions
+        draftCountLabel.setText("Select 1 starting province");
+        draftCountLabel.setVisible(true);
+
+        gameBoard.setDisable(false);
+        endTurnBtn.setDisable(false);
+
+        updatePlayerTurnUI(masterState, gameBoard);
+
+        // Set up the End Turn Button for Claiming
+        endTurnBtn.setOnAction(e -> {
+            Player p = masterState.getPlayers().get(currentPlayerIndex);
+
+            // Validation Check: Make sure they actually clicked a province!
+            long ownedCount = masterState.getProvinces().stream()
+                    .filter(prov -> p.getId().equals(prov.getOwnerId()))
+                    .count();
+
+            if (ownedCount == 0) {
+                // If they haven't claimed one, don't let them pass the turn
+                System.out.println("You must claim a province first!");
+                draftCountLabel.setText("PLEASE SELECT A PROVINCE!");
+                draftCountLabel.setTextFill(Color.RED);
+                return;
+            }
+
+            // Pass the turn. Once everyone claims, move to Drafting!
+            handleHotseatPass(masterState, gameBoard, () -> startDraftingPhase(masterState, gameBoard));
+        });
+    }
+
     // DRAFTING PHASE
     private void startDraftingPhase(GameState masterState, InteractiveMapPane gameBoard) {
         masterState.setCurrentPhase(GameState.GamePhase.DRAFTING);
@@ -227,7 +251,9 @@ public class Main extends Application {
         timeRemaining = 20; // 20 Second Draft
         gameBoard.setDisable(false);
         endTurnBtn.setDisable(false);
+
         draftCountLabel.setVisible(true);
+        draftCountLabel.setTextFill(Color.GOLD);
 
         updatePlayerTurnUI(masterState, gameBoard);
 
@@ -293,7 +319,13 @@ public class Main extends Application {
         Player p = masterState.getPlayers().get(currentPlayerIndex);
         gameBoard.setCurrentLocalPlayerId(p.getId());
         playerTurnLabel.setText("Current Player: " + p.getDisplayName());
-        draftCountLabel.setText("Armies left: " + masterState.getDraftArmies(p.getId()));
+        if (masterState.getCurrentPhase() == GameState.GamePhase.CLAIMING) {
+            draftCountLabel.setText("Select 1 starting province");
+            draftCountLabel.setTextFill(Color.GOLD);
+        } else if (masterState.getCurrentPhase() == GameState.GamePhase.DRAFTING) {
+            draftCountLabel.setText("Armies left: " + masterState.getDraftArmies(p.getId()));
+            draftCountLabel.setTextFill(Color.GOLD);
+        }
     }
 
     private void startTimer(String phaseName, Runnable onComplete) {
