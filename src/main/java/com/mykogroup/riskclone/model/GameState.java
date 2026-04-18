@@ -7,7 +7,7 @@ import java.util.*;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class GameState {
 
-    public enum GamePhase { DRAFTING, PLANNING, RESOLUTION }
+    public enum GamePhase { DRAFTING, PLANNING, RESOLUTION, CLAIMING }
 
     private GamePhase currentPhase = GamePhase.DRAFTING;
     private final Map<String, Integer> draftPools = new HashMap<>();
@@ -22,6 +22,29 @@ public class GameState {
     public GameState() {}
 
     // --- Core State Manipulations ---
+
+    public boolean claimStartingProvince(String playerId, String provinceId) {
+        Optional<Province> target = getProvince(provinceId);
+
+        // Rule 1: Cannot claim a province that an enemy has already locked in
+        if (target.isEmpty() || (target.get().getOwnerId() != null && !target.get().getOwnerId().equals(playerId))) {
+            return false;
+        }
+
+        // Rule 2: Unclaim any previously clicked province by this player
+        provinces.stream()
+                .filter(p -> playerId.equals(p.getOwnerId()))
+                .forEach(p -> {
+                    p.setOwnerId(null);
+                    p.setArmyCount(0);
+                });
+
+        // Rule 3: Claim the new province and give it a starting garrison (e.g., 5 troops)
+        target.get().setOwnerId(playerId);
+        target.get().setArmyCount(5);
+
+        return true;
+    }
 
     // --- Calculate Draft Phase Incomes ---
     public int calculateDraftIncome(String playerId) {

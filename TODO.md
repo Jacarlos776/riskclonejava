@@ -38,7 +38,7 @@ Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'e
 - [X] **Region Bonus:** Give 'em more armies if they control regions
 - [X] **Menu Scene:** Scene before the actual gameplay,
   - [ ] **Color Wheel:** Allow the player to change their color
-  - [ ] **Initial Province:** Allow the player to choose their initial province
+  - [X] **Initial Province:** Allow the player to choose their initial province
 
 ## 🔴 MoSCoW
 
