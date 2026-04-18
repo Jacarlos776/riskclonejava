@@ -20,14 +20,14 @@ Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'e
 - [X] **Move Validation Enhancements:**
         
   - [X] Prevent players from selecting/moving from a province they don't own.
-  - [X] ~~Add a "Cancel Move" button or right-click to clear the `arrowLayer`. Maybe a drag animation from one province to another? idk whichever's easiest to implement~~ Update: when the user moves army count from one province to another to zero, the arrow just disappears
+  - [X] ~~Add a "Cancel Move" button or right-click to clear the `arrowLayer`. Maybe a drag animation from one province to another? IDK whichever's easiest to implement~~ Update: when the user moves army count from one province to another to zero, the arrow just disappears
 - [X] **Troop Allocation UI:** Create a small JavaFX `HBox` or `Slider` that pops up when a move is queued to select the number of troops.
 
 - [X] **Turn Timer:** Implement a `Timeline` or `AnimationTimer` for the 60-second countdown.
 - [X] **Switch Players:** Button that switches player, down the line we'll refactor this to just indicate that the player is done moving
 - [X] **Resolution Engine:** handles what happens when armies move, has three phases
   - [X] **Phase 1 DEPARTURES:** Decreases army count for all departed provinces
-  - [X] **Phase 2 CROSSFIRES:** What happens when Army 1 from Province A goes to Province B and Army 2 from Province B goes to Province A and they meet head on
+  - [X] **Phase 2 CROSSFIRES:** What happens when Army 1 from Province A goes to Province B and Army 2 from Province B goes to Province A, and they meet head on
   - [X] **Phase 3 CONVERGENCE & CLASHES:** Has three possible scenarios - Peaceful Transfer, Standard Invasion, Multi-way Bloodbath. Check code itself for more info
   - [X] **Bonus Phase 4 TIE-BREAKER:** If army is an exact match, defender has advantage, else if two attackers are tied while invading an empty or third party province, they annihilate each other, nobody gets the province.
 
@@ -48,11 +48,13 @@ Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'e
 ### Should Haves
 - Redesign Arrow: it looks terrible
 - Resolution Animation: Show all the moves made by the players, maybe make it province by province or something, to make it easier to see.
+- Redesign Scenes: Make it not look like a 2000s flash game.
+
 ### Could Haves
 - Music and Mute button on top right
 - Color Picker/Wheel - let the players decide on their own colors
 - Music during resolution phase, music during animation of resolution phase
-- Cards: When you win a province, you get part of a card, complete a set and you can get extra armies.
+- Cards: When you win a province, you get part of a card, complete a set, and you can get extra armies.
 - Combat Modifier: Add a lil bit of randomness to the resolution phase by giving armies +/- 10% combat efficiency roll, letting smaller armies potentially beat larger ones.
 - Menu Stage before the actual game. Could add here the colorwheel and joining the host server by inputting port, etc. If we have a color wheel, should appear after joining the host, and we should be able to see what colors other players chose/are choosing.
 - In the initial phase, allow players to pick more than 1 province, 
