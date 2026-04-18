@@ -35,17 +35,17 @@ public class InteractiveMapPane extends Pane {
 
     // --- GAME UI STATE ---
     private SVGPath sourceProvince = null;
+    private Runnable onDraftAction; // Callback to update UI
 
     // --- GAME LOGIC STATE ---
     private final AdjacencyService adjacencyService;
     private GameState gameState;
     private String currentLocalPlayerId = "player1"; // Default
 
-
-    // --- Layers --- // Reason why we had to make two layers is because of the .toFront of provinces in SvgMapLoader. this means when you hover over the province it hides the arrows, so we make a second layer where the arrow is always on top.
+    // --- Layers ---
     private final Group provinceLayer = new Group();
     private final Group labelLayer = new Group();
-    private final Group arrowLayer = new Group(); // Note: Once we implement the planning and resolution phase, we should clear the arrow layer to remove all arrows.
+    private final Group arrowLayer = new Group();
     private final Group uiLayer = new Group();
     // ADD MORE LAYERS AS NEEDED. for example: uiLayer for the UI, etc.
 
@@ -64,6 +64,10 @@ public class InteractiveMapPane extends Pane {
         // Add layers to the Pane.
         // Order matters: arrowLayer is added second, so it always renders on top.
         this.getChildren().addAll(provinceLayer, labelLayer, arrowLayer, uiLayer);
+    }
+
+    public void setOnDraftAction(Runnable onDraftAction) {
+        this.onDraftAction = onDraftAction;
     }
 
     public void setGameState(GameState gameState) {
@@ -110,6 +114,24 @@ public class InteractiveMapPane extends Pane {
         }
 
         String clickedId = clickedNode.getId();
+
+        // --- DRAFTING PHASE INTERCEPT ---
+        if (gameState.getCurrentPhase() == GameState.GamePhase.DRAFTING) {
+            boolean placed = gameState.placeDraftArmy(currentLocalPlayerId, clickedId);
+            if (placed) {
+                // Update the visual text label immediately
+                Text label = armyLabels.get(clickedId);
+                if (label != null) {
+                    int newCount = gameState.getProvince(clickedId).orElseThrow().getArmyCount();
+                    label.setText(String.valueOf(newCount));
+                }
+                // Trigger the UI to update the "Remaining Troops" label
+                if (onDraftAction != null) onDraftAction.run();
+            } else {
+                System.out.println("Cannot draft here or no armies left!");
+            }
+            return; // Exit method completely so we don't select or draw arrows
+        }
 
         if (sourceProvince == null) { // State 1: Nothing is selected yet. Set this as the Source.
             Optional<Province> pData = gameState.getProvince(clickedId);

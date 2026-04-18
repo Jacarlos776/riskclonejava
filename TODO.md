@@ -2,7 +2,7 @@
 
 Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'em:
 
-## 🟢 Phase 1: Data & Core Model (In Progress)
+## 🟢 Phase 1: Data & Core Model
 - [ ] **PROVINCE MAPPING:** Complete the `province.json` adjacency list for all 81 provinces. Make sure to give isolated islands adjacencies as well so they're not useless.
 
 - [X] **Serialization:** Create the `GameState` POJO and test saving/loading the current state to a JSON file using Jackson.
@@ -29,6 +29,13 @@ Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'e
   - [X] **Phase 3 CONVERGENCE & CLASHES:** Has three possible scenarios - Peaceful Transfer, Standard Invasion, Multi-way Bloodbath. Check code itself for more info
   - [X] **Bonus Phase 4 TIE-BREAKER:** If army is an exact match, defender has advantage, else if two attackers are tied while invading an empty or third party province, they annihilate each other, nobody gets the province.
 
+## 🔵 Phase 3: idk
+- [ ] **Initial drafting:** Create an initial phase where players can pick a region to place their initial armies
+- [X] **Drafting Phase:** Allow players to allocate their armies
+  - [ ] **Number of province army allocation:** Depending on how many provinces they control, give them a certain amount of armies
+- [ ]
+
+
 ## 🔴 MoSCoW
 
 ### Must Haves
@@ -43,4 +50,5 @@ Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'e
 - Cards: When you win a province, you get part of a card, complete a set and you can get extra armies.
 - Combat Modifier: Add a lil bit of randomness to the resolution phase by giving armies +/- 10% combat efficiency roll, letting smaller armies potentially beat larger ones.
 - Menu Stage before the actual game. Could add here the colorwheel and joining the host server by inputting port, etc. If we have a color wheel, should appear after joining the host, and we should be able to see what colors other players chose/are choosing.
+- In the initial phase, allow players to pick more than 1 province, 
 ### Won't Haves

@@ -7,22 +7,41 @@ import java.util.*;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class GameState {
 
+    public enum GamePhase { DRAFTING, PLANNING, RESOLUTION }
+
+    private GamePhase currentPhase = GamePhase.DRAFTING;
+    private final Map<String, Integer> draftPools = new HashMap<>();
+
     private List<Player> players = new ArrayList<>();
     private List<Province> provinces = new ArrayList<>();
     private List<Move> queuedMoves = new ArrayList<>();
-    private Set<String> readyPlayers = new HashSet<>();
+    private final Set<String> readyPlayers = new HashSet<>();
 
     // Default constructor for Jackson
     public GameState() {}
 
     // --- Core State Manipulations ---
 
-    public void queueMove(Move move) {
-        // Optional: Add basic sanity checks before allowing it into the queue.
-        // E.g., Does the player actually own the 'fromId' province?
-        // Do they have enough armies?
-        // (Adjacency is already checked by the View layer, but the Engine should double-check it during resolution).
-        queuedMoves.add(move);
+    // Call this at the start of every draft phase
+    public void initDraftPools(int armiesPerPlayer) {
+        for (Player p : players) {
+            draftPools.put(p.getId(), armiesPerPlayer);
+        }
+    }
+
+    // Attempts to place an army. Returns true if successful.
+    public boolean placeDraftArmy(String playerId, String provinceId) {
+        int available = getDraftArmies(playerId);
+        if (available > 0) {
+            Optional<Province> p = getProvince(provinceId);
+            // Verify they actually own the province
+            if (p.isPresent() && playerId.equals(p.get().getOwnerId())) {
+                p.get().setArmyCount(p.get().getArmyCount() + 1);
+                draftPools.put(playerId, available - 1);
+                return true;
+            }
+        }
+        return false;
     }
 
     public void clearQueuedMoves() {
@@ -91,5 +110,12 @@ public class GameState {
 
     public void setPlayerReady(String playerId) {
         readyPlayers.add(playerId);
+    }
+
+    public GamePhase getCurrentPhase() { return currentPhase; }
+    public void setCurrentPhase(GamePhase currentPhase) { this.currentPhase = currentPhase; }
+
+    public int getDraftArmies(String playerId) {
+        return draftPools.getOrDefault(playerId, 0);
     }
 }
