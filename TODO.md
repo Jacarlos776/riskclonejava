@@ -49,14 +49,13 @@ Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'e
 - Redesign Arrow: it looks terrible
 - Resolution Animation: Show all the moves made by the players, maybe make it province by province or something, to make it easier to see.
 - Redesign Scenes: Make it not look like a 2000s flash game.
+- Menu Stage: join the host server by inputting port. Color wheel should appear after joining host and we should be able to see what colors other players chose/are choosing.
 
 ### Could Haves
 - Music and Mute button on top right
-- Color Picker/Wheel - let the players decide on their own colors
 - Music during resolution phase, music during animation of resolution phase
 - Cards: When you win a province, you get part of a card, complete a set, and you can get extra armies.
 - Combat Modifier: Add a lil bit of randomness to the resolution phase by giving armies +/- 10% combat efficiency roll, letting smaller armies potentially beat larger ones.
-- Menu Stage before the actual game. Could add here the colorwheel and joining the host server by inputting port, etc. If we have a color wheel, should appear after joining the host, and we should be able to see what colors other players chose/are choosing.
 - In the initial phase, allow players to pick more than 1 province, 
 - Change draft allocation to use a slider instead of tapping
 - Rule scene, showing how the game works
