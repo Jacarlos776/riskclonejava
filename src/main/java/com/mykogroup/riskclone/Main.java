@@ -7,6 +7,7 @@ import com.mykogroup.riskclone.model.GameState;
 import com.mykogroup.riskclone.model.Player;
 import com.mykogroup.riskclone.model.Province;
 import com.mykogroup.riskclone.model.Region;
+import com.mykogroup.riskclone.view.ColorManager;
 import com.mykogroup.riskclone.view.InteractiveMapPane;
 import com.mykogroup.riskclone.view.SvgMapLoader;
 import javafx.animation.KeyFrame;
@@ -15,6 +16,7 @@ import javafx.application.Application;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.ColorPicker;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
@@ -109,7 +111,9 @@ public class Main extends Application {
         p1Label.setTextFill(Color.web("#ef4444"));
         TextField p1Input = new TextField("Joshua");
         p1Input.setFont(Font.font(16));
-        p1Box.getChildren().addAll(p1Label, p1Input);
+        ColorPicker p1Color = new ColorPicker(Color.web("#ef4444"));
+        p1Color.setStyle("-fx-font-size: 14px;");
+        p1Box.getChildren().addAll(p1Label, p1Input, p1Color);
 
         // Player 2 Input
         HBox p2Box = new HBox(10);
@@ -119,7 +123,9 @@ public class Main extends Application {
         p2Label.setTextFill(Color.web("#3b82f6"));
         TextField p2Input = new TextField("Enemy AI");
         p2Input.setFont(Font.font(16));
-        p2Box.getChildren().addAll(p2Label, p2Input);
+        ColorPicker p2Color = new ColorPicker(Color.web("#3b82f6"));
+        p2Color.setStyle("-fx-font-size: 14px;");
+        p2Box.getChildren().addAll(p2Label, p2Input, p2Color);
 
         // Start Button
         Button startBtn = new Button("Start Game");
@@ -130,6 +136,9 @@ public class Main extends Application {
             masterState.getPlayers().clear();
             masterState.getPlayers().add(new Player("player1", p1Input.getText()));
             masterState.getPlayers().add(new Player("player2", p2Input.getText()));
+
+            ColorManager.setPlayerColor("player1", toHexString(p1Color.getValue()));
+            ColorManager.setPlayerColor("player2", toHexString(p2Color.getValue()));
 
             // 2. Transition to the Game Board
             launchGameView(masterState, gameBoard);
@@ -341,4 +350,13 @@ public class Main extends Application {
         phaseTimer.setOnFinished(event -> onComplete.run());
         phaseTimer.playFromStart();
     }
+
+    // Convert JavaFX Color to Web Hex String
+    private String toHexString(Color color) {
+        return String.format("#%02x%02x%02x",
+                (int) (color.getRed() * 255),
+                (int) (color.getGreen() * 255),
+                (int) (color.getBlue() * 255));
+    }
+
 }
