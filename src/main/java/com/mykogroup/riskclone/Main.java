@@ -14,6 +14,7 @@ import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Application;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ColorPicker;
@@ -38,8 +39,13 @@ public class Main extends Application {
     private Scene mainScene; // Tracks the main window scene
     private Label timerLabel;
     private Label playerTurnLabel;
-    private Label draftCountLabel; // NEW: Shows "Armies left: 5"
+    private Label draftCountLabel; // Shows "Armies left: 5"
     private Button endTurnBtn;
+    private VBox playerRowsContainer;
+    private final String[] DEFAULT_COLORS = {
+            "#ef4444", "#3b82f6", "#10b981", "#f59e0b",
+            "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"
+    };
 
     private Timeline phaseTimer;
     private int timeRemaining;
@@ -103,48 +109,46 @@ public class Main extends Application {
         titleLabel.setFont(Font.font("System", FontWeight.BOLD, 48));
         titleLabel.setTextFill(Color.WHITE);
 
-        // Player 1 Input
-        HBox p1Box = new HBox(10);
-        p1Box.setAlignment(Pos.CENTER);
-        Label p1Label = new Label("Player 1 Name:");
-        p1Label.setFont(Font.font(18));
-        p1Label.setTextFill(Color.web("#ef4444"));
-        TextField p1Input = new TextField("Joshua");
-        p1Input.setFont(Font.font(16));
-        ColorPicker p1Color = new ColorPicker(Color.web("#ef4444"));
-        p1Color.setStyle("-fx-font-size: 14px;");
-        p1Box.getChildren().addAll(p1Label, p1Input, p1Color);
+        playerRowsContainer = new VBox(15);
+        playerRowsContainer.setAlignment(Pos.CENTER);
 
-        // Player 2 Input
-        HBox p2Box = new HBox(10);
-        p2Box.setAlignment(Pos.CENTER);
-        Label p2Label = new Label("Player 2 Name:");
-        p2Label.setFont(Font.font(18));
-        p2Label.setTextFill(Color.web("#3b82f6"));
-        TextField p2Input = new TextField("Enemy AI");
-        p2Input.setFont(Font.font(16));
-        ColorPicker p2Color = new ColorPicker(Color.web("#3b82f6"));
-        p2Color.setStyle("-fx-font-size: 14px;");
-        p2Box.getChildren().addAll(p2Label, p2Input, p2Color);
+        // Generate the minimum 4 players
+        for (int i = 0; i < 4; i++) {
+            addPlayerRow();
+        }
+
+        // Add Player Button
+        Button addPlayerBtn = new Button("+ Add Player");
+        addPlayerBtn.setStyle("-fx-font-size: 14px; -fx-background-color: #4a5568; -fx-text-fill: white; -fx-padding: 5 15;");
+        addPlayerBtn.setOnAction(e -> addPlayerRow());
 
         // Start Button
         Button startBtn = new Button("Start Game");
         startBtn.setStyle("-fx-font-size: 20px; -fx-font-weight: bold; -fx-background-color: #27ae60; -fx-text-fill: white; -fx-padding: 10 30;");
 
         startBtn.setOnAction(e -> {
-            // 1. Save the customized players into the GameState
             masterState.getPlayers().clear();
-            masterState.getPlayers().add(new Player("player1", p1Input.getText()));
-            masterState.getPlayers().add(new Player("player2", p2Input.getText()));
 
-            ColorManager.setPlayerColor("player1", toHexString(p1Color.getValue()));
-            ColorManager.setPlayerColor("player2", toHexString(p2Color.getValue()));
+            // Loop through our dynamic container to save the customized players
+            int index = 1;
+            for (Node node : playerRowsContainer.getChildren()) {
+                if (node instanceof HBox row) {
+                    // Extract the values from the UI elements in the row
+                    TextField nameInput = (TextField) row.getChildren().get(1);
+                    ColorPicker colorPicker = (ColorPicker) row.getChildren().get(2);
 
-            // 2. Transition to the Game Board
+                    String pId = "player" + index;
+                    masterState.getPlayers().add(new Player(pId, nameInput.getText()));
+                    ColorManager.setPlayerColor(pId, toHexString(colorPicker.getValue()));
+
+                    index++;
+                }
+            }
+
             launchGameView(masterState, gameBoard);
         });
 
-        menuRoot.getChildren().addAll(titleLabel, p1Box, p2Box, startBtn);
+        menuRoot.getChildren().addAll(titleLabel, playerRowsContainer, addPlayerBtn, startBtn);
         mainScene.setRoot(menuRoot); // Attach menu to the window
     }
 
@@ -349,6 +353,63 @@ public class Main extends Application {
         phaseTimer.setCycleCount(timeRemaining);
         phaseTimer.setOnFinished(event -> onComplete.run());
         phaseTimer.playFromStart();
+    }
+
+    private void addPlayerRow() {
+        int index = playerRowsContainer.getChildren().size();
+
+        HBox row = new HBox(15);
+        row.setAlignment(Pos.CENTER);
+
+        Label pLabel = new Label(); // Text set by refreshPlayerRows()
+        pLabel.setFont(Font.font(18));
+        pLabel.setTextFill(Color.WHITE);
+
+        TextField nameInput = new TextField(); // Text set by refreshPlayerRows()
+        nameInput.setFont(Font.font(16));
+
+        // Grab a default color based on their index, looping back to the start if we exceed 8
+        String defaultHex = DEFAULT_COLORS[index % DEFAULT_COLORS.length];
+        ColorPicker colorPicker = new ColorPicker(Color.web(defaultHex));
+        colorPicker.setStyle("-fx-font-size: 14px;");
+
+        Button removeBtn = new Button("X");
+        removeBtn.setStyle("-fx-background-color: #ef4444; -fx-text-fill: white; -fx-font-weight: bold;");
+        removeBtn.setOnAction(e -> {
+            playerRowsContainer.getChildren().remove(row);
+            refreshPlayerRows(); // Recalculate labels and button states
+        });
+
+        row.getChildren().addAll(pLabel, nameInput, colorPicker, removeBtn);
+        playerRowsContainer.getChildren().add(row);
+
+        refreshPlayerRows(); // Update UI states
+    }
+
+    private void refreshPlayerRows() {
+        int totalPlayers = playerRowsContainer.getChildren().size();
+        int currentIndex = 1;
+
+        for (Node node : playerRowsContainer.getChildren()) {
+            if (node instanceof HBox row) {
+                Label pLabel = (Label) row.getChildren().get(0);
+                TextField nameInput = (TextField) row.getChildren().get(1);
+                Button removeBtn = (Button) row.getChildren().get(3);
+
+                // Update the visual numbering
+                pLabel.setText("Player " + currentIndex + " Name:");
+
+                // If they haven't typed a custom name yet, update the placeholder
+                if (nameInput.getText().isEmpty() || nameInput.getText().startsWith("Player ")) {
+                    nameInput.setText("Player " + currentIndex);
+                }
+
+                // Disable the remove button if we are at the minimum of 4 players
+                removeBtn.setDisable(totalPlayers <= 4);
+
+                currentIndex++;
+            }
+        }
     }
 
     // Convert JavaFX Color to Web Hex String

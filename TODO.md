@@ -37,8 +37,9 @@ Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'e
   - [X] **Number of province army allocation:** Depending on how many provinces they control, give them a certain amount of armies
 - [X] **Region Bonus:** Give 'em more armies if they control regions
 - [X] **Menu Scene:** Scene before the actual gameplay,
-  - [ ] **Color Wheel:** Allow the player to change their color
+  - [X] **Color Wheel:** Allow the player to change their color
   - [X] **Initial Province:** Allow the player to choose their initial province
+  - [X] **Add Players:** Allow them to add and remove players
 
 ## 🔴 MoSCoW
 
@@ -56,4 +57,5 @@ Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'e
 - Menu Stage before the actual game. Could add here the colorwheel and joining the host server by inputting port, etc. If we have a color wheel, should appear after joining the host, and we should be able to see what colors other players chose/are choosing.
 - In the initial phase, allow players to pick more than 1 province, 
 - Change draft allocation to use a slider instead of tapping
+- Rule scene, showing how the game works
 ### Won't Haves
