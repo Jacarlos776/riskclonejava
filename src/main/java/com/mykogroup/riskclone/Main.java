@@ -417,9 +417,20 @@ public class Main extends Application {
                     endPause.play();
                 } else if (currentPhase == GameState.GamePhase.DRAFTING) {
                     playAiDraftAnimation(masterState, gameBoard, p);
-                }
+                } else if (currentPhase == GameState.GamePhase.PLANNING) {
+                    // --- Trigger the Planning Logic ---
+                    aiController.takePlanningTurn(masterState, p.getId());
 
-                // TODO later: Add AI hooks for Drafting and Planning
+                    // Instantly render the map so the UI can draw the arrows for the AI's queued moves!
+                    gameBoard.renderState(masterState);
+
+                    // Add a small pause so players can briefly see the AI's arrows before the turn passes
+                    PauseTransition endPause = new PauseTransition(Duration.seconds(1.0));
+                    endPause.setOnFinished(ev -> {
+                        endTurnBtn.setDisable(false);
+                        endTurnBtn.fire();
+                    });
+                }
             });
             thinkPause.play();
 
