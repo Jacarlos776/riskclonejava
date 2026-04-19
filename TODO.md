@@ -43,6 +43,7 @@ Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'e
 - [X] **Win & Lose Condition:** Player loses and is not iterated upon anymore when he has no territories left and a player wins when he's the only player left with territory
 - [ ] **AI Enemy:** Implement an AI
   - [X] **AI Toggle:** Make a button in the lobby allowing players to be AI
+  - [X] **AI Drafting:** Make AI know how to draft
 
 ## 🔴 MoSCoW
 
@@ -55,6 +56,8 @@ Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'e
 - Menu Stage: join the host server by inputting port. Color wheel should appear after joining host and we should be able to see what colors other players chose/are choosing.
 - Button or something to hover over in-game that highlights the regions available
 - Resolution Animation: shows how the armies fought
+- When moving armies in planning phase, it should decrement the current province's numbers for better visibility.
+
 ### Could Haves
 - Music and Mute button on top right
 - Music during resolution phase, music during animation of resolution phase

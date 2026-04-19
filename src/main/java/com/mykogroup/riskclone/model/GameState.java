@@ -189,6 +189,7 @@ public class GameState {
     public List<Move> getQueuedMoves() { return queuedMoves; }
     public void setQueuedMoves(List<Move> queuedMoves) { this.queuedMoves = queuedMoves; }
 
+    public List<Region> getRegions() { return regions; }
     public void setRegions(List<Region> regions) { this.regions = regions; }
 
     public void setPlayerReady(String playerId) {
