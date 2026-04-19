@@ -33,6 +33,7 @@ import javafx.util.Duration;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 public class Main extends Application {
     // --- Class Variables for Game Loop ---
@@ -45,6 +46,11 @@ public class Main extends Application {
     private final String[] DEFAULT_COLORS = {
             "#ef4444", "#3b82f6", "#10b981", "#f59e0b",
             "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"
+    };
+    private final String[] AI_NAMES = {
+            "Jose Rizal", "Andres Bonifacio", "Magellan", "Lapu-lapu", "Antonio Luna",
+            "Gabriela Silang", "Apolinario Mabini", "Emilio Jacinto", "Melchora Aquino",
+            "Sultan Kudarat", "Ferdinand Magellan", "Juan Luna", "Emilio Aguinaldo"
     };
 
     private Timeline phaseTimer;
@@ -125,10 +131,14 @@ public class Main extends Application {
                 if (node instanceof HBox row) {
                     // Extract the values from the UI elements in the row
                     TextField nameInput = (TextField) row.getChildren().get(1);
-                    ColorPicker colorPicker = (ColorPicker) row.getChildren().get(2);
+                    Button aiToggle = (Button) row.getChildren().get(2); // Get the toggle button
+                    ColorPicker colorPicker = (ColorPicker) row.getChildren().get(3);
+
+                    // Check if the button says "AI"osh
+                    boolean isAi = aiToggle.getText().contains("AI");
 
                     String pId = "player" + index;
-                    masterState.getPlayers().add(new Player(pId, nameInput.getText()));
+                    masterState.getPlayers().add(new Player(pId, nameInput.getText(), isAi));
                     ColorManager.setPlayerColor(pId, toHexString(colorPicker.getValue()));
 
                     index++;
@@ -303,7 +313,7 @@ public class Main extends Application {
 
         if (survivors.size() == 1) {
             // WINNEr
-            showGameOverScreen(survivors.get(0));
+            showGameOverScreen(survivors.getFirst());
         } else if (survivors.isEmpty()) {
             // Extremely rare edge case: Mutual destruction of the last two players
             showGameOverScreen(null);
@@ -395,6 +405,7 @@ public class Main extends Application {
     }
 
     private void addPlayerRow() {
+        Random rand = new Random();
         int index = playerRowsContainer.getChildren().size();
 
         HBox row = new HBox(15);
@@ -406,6 +417,26 @@ public class Main extends Application {
 
         TextField nameInput = new TextField(); // Text set by refreshPlayerRows()
         nameInput.setFont(Font.font(16));
+
+        Button aiToggleBtn = new Button("👤 Human");
+        aiToggleBtn.setStyle("-fx-background-color: #3b82f6; -fx-text-fill: white; -fx-font-weight: bold; -fx-pref-width: 100px;");
+
+        aiToggleBtn.setOnAction(e -> {
+            if (aiToggleBtn.getText().contains("Human")) {
+                // Switch TO AI
+                aiToggleBtn.setText("🤖 AI");
+                aiToggleBtn.setStyle("-fx-background-color: #8b5cf6; -fx-text-fill: white; -fx-font-weight: bold; -fx-pref-width: 100px;");
+                nameInput.setDisable(true); // Lock the text field
+                nameInput.setText(AI_NAMES[rand.nextInt(AI_NAMES.length)]); // Assign historical name
+            } else {
+                // Switch TO Human
+                aiToggleBtn.setText("👤 Human");
+                aiToggleBtn.setStyle("-fx-background-color: #3b82f6; -fx-text-fill: white; -fx-font-weight: bold; -fx-pref-width: 100px;");
+                nameInput.setDisable(false); // Unlock the text field
+                nameInput.setText(""); // Clear it so refreshPlayerRows can reset it
+                refreshPlayerRows();
+            }
+        });
 
         // Grab a default color based on their index, looping back to the start if we exceed 8
         String defaultHex = DEFAULT_COLORS[index % DEFAULT_COLORS.length];
@@ -419,7 +450,7 @@ public class Main extends Application {
             refreshPlayerRows(); // Recalculate labels and button states
         });
 
-        row.getChildren().addAll(pLabel, nameInput, colorPicker, removeBtn);
+        row.getChildren().addAll(pLabel, nameInput, aiToggleBtn, colorPicker, removeBtn);
         playerRowsContainer.getChildren().add(row);
 
         refreshPlayerRows(); // Update UI states
@@ -433,7 +464,7 @@ public class Main extends Application {
             if (node instanceof HBox row) {
                 Label pLabel = (Label) row.getChildren().get(0);
                 TextField nameInput = (TextField) row.getChildren().get(1);
-                Button removeBtn = (Button) row.getChildren().get(3);
+                Button removeBtn = (Button) row.getChildren().get(4);
 
                 // Update the visual numbering
                 pLabel.setText("Player " + currentIndex + " Name:");
