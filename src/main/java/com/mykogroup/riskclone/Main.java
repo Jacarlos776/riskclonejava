@@ -1,6 +1,7 @@
 package com.mykogroup.riskclone;
 
 import com.mykogroup.riskclone.engine.AdjacencyService;
+import com.mykogroup.riskclone.engine.AiController;
 import com.mykogroup.riskclone.engine.RegionLoader;
 import com.mykogroup.riskclone.engine.ResolutionEngine;
 import com.mykogroup.riskclone.model.GameState;
@@ -11,6 +12,7 @@ import com.mykogroup.riskclone.view.ColorManager;
 import com.mykogroup.riskclone.view.InteractiveMapPane;
 import com.mykogroup.riskclone.view.SvgMapLoader;
 import javafx.animation.KeyFrame;
+import javafx.animation.PauseTransition;
 import javafx.animation.Timeline;
 import javafx.application.Application;
 import javafx.geometry.Pos;
@@ -37,6 +39,7 @@ import java.util.Random;
 
 public class Main extends Application {
     // --- Class Variables for Game Loop ---
+    private AiController aiController;
     private Scene mainScene; // Tracks the main window scene
     private Label timerLabel;
     private Label playerTurnLabel;
@@ -76,6 +79,7 @@ public class Main extends Application {
 
         // Initialize the Engine and Board
         AdjacencyService adjacencyService = new AdjacencyService("/com/mykogroup/riskclone/province.json");
+        aiController = new AiController(adjacencyService);
         GameState masterState = new GameState();
         InteractiveMapPane gameBoard = new InteractiveMapPane(adjacencyService, masterState);
 
@@ -227,7 +231,7 @@ public class Main extends Application {
         draftCountLabel.setText("Select 1 starting province");
         draftCountLabel.setVisible(true);
 
-        gameBoard.setDisable(false);
+        gameBoard.setInteractionLocked(false);
         endTurnBtn.setDisable(false);
 
         updatePlayerTurnUI(masterState, gameBoard);
@@ -262,7 +266,7 @@ public class Main extends Application {
 
         currentPlayerIndex = 0;
         timeRemaining = 20; // 20 Second Draft
-        gameBoard.setDisable(false);
+        gameBoard.setInteractionLocked(false);
         endTurnBtn.setDisable(false);
 
         draftCountLabel.setVisible(true);
@@ -301,7 +305,7 @@ public class Main extends Application {
         timerLabel.setText("RESOLUTION PHASE");
         timerLabel.setTextFill(Color.GOLD);
         endTurnBtn.setDisable(true);
-        gameBoard.setDisable(true);
+        gameBoard.setInteractionLocked(true);
 
         System.out.println("Processing Combat...");
         new ResolutionEngine().processTurn(masterState);
@@ -387,6 +391,39 @@ public class Main extends Application {
         } else if (masterState.getCurrentPhase() == GameState.GamePhase.DRAFTING) {
             draftCountLabel.setText("Armies left: " + masterState.getDraftArmies(p.getId()));
             draftCountLabel.setTextFill(Color.GOLD);
+        }
+
+        // --- Handle AI Turns ---
+        if (p.isAi()) {
+            // Lock out human interaction
+            gameBoard.setInteractionLocked(true);
+            endTurnBtn.setDisable(true);
+
+            // Wait 1.5 seconds to simulate "thinking"
+            PauseTransition thinkPause = new PauseTransition(Duration.seconds(1.5));
+            thinkPause.setOnFinished(e -> {
+
+                if (masterState.getCurrentPhase() == GameState.GamePhase.CLAIMING) {
+                    aiController.takeClaimingTurn(masterState, p.getId());
+                    gameBoard.renderState(masterState); // Instantly show their choice
+
+                    // Wait another 0.5s so the player can actually see the province change color, then end turn
+                    PauseTransition endPause = new PauseTransition(Duration.seconds(0.5));
+                    endPause.setOnFinished(ev -> {
+                        endTurnBtn.setDisable(false);
+                        endTurnBtn.fire(); // Simulate clicking the button
+                    });
+                    endPause.play();
+                }
+
+                // TODO later: Add AI hooks for Drafting and Planning
+            });
+            thinkPause.play();
+
+        } else {
+            // Ensure the board is unlocked for Humans
+            gameBoard.setInteractionLocked(false);
+            endTurnBtn.setDisable(false);
         }
     }
 

@@ -31,4 +31,9 @@ public class AdjacencyService {
         List<String> neighbors = adjacencyMap.get(provinceA);
         return neighbors != null && neighbors.contains(provinceB);
     }
+
+    // --- Expose neighbors for AI Pathfinding ---
+    public List<String> getNeighbors(String provinceId) {
+        return adjacencyMap.getOrDefault(provinceId, Collections.emptyList());
+    }
 }
