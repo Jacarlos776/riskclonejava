@@ -402,8 +402,9 @@ public class Main extends Application {
             // Wait 1.5 seconds to simulate "thinking"
             PauseTransition thinkPause = new PauseTransition(Duration.seconds(1.5));
             thinkPause.setOnFinished(e -> {
+                GameState.GamePhase currentPhase = masterState.getCurrentPhase();
 
-                if (masterState.getCurrentPhase() == GameState.GamePhase.CLAIMING) {
+                if (currentPhase == GameState.GamePhase.CLAIMING) {
                     aiController.takeClaimingTurn(masterState, p.getId());
                     gameBoard.renderState(masterState); // Instantly show their choice
 
@@ -414,6 +415,8 @@ public class Main extends Application {
                         endTurnBtn.fire(); // Simulate clicking the button
                     });
                     endPause.play();
+                } else if (currentPhase == GameState.GamePhase.DRAFTING) {
+                    playAiDraftAnimation(masterState, gameBoard, p);
                 }
 
                 // TODO later: Add AI hooks for Drafting and Planning
@@ -517,6 +520,60 @@ public class Main extends Application {
                 currentIndex++;
             }
         }
+    }
+
+    // --- AI Incremental Drafting ---
+    private void playAiDraftAnimation(GameState masterState, InteractiveMapPane gameBoard, Player p) {
+        int totalDraft = masterState.getDraftArmies(p.getId());
+
+        if (totalDraft <= 0) {
+            endTurnBtn.setDisable(false);
+            endTurnBtn.fire();
+            return;
+        }
+
+        // Calculate dynamic batch size (Drops troops faster in late-game)
+        int batchSize = Math.max(1, totalDraft / 15);
+
+        Timeline draftTimeline = new Timeline();
+        draftTimeline.setCycleCount(Timeline.INDEFINITE); // Loop until out of troops
+
+        // Fire every 300 milliseconds (0.3 seconds)
+        KeyFrame frame = new KeyFrame(Duration.millis(300), e -> {
+            int remaining = masterState.getDraftArmies(p.getId());
+
+            if (remaining <= 0) {
+                draftTimeline.stop();
+                // Pause slightly after finishing before clicking End Turn
+                PauseTransition endPause = new PauseTransition(Duration.seconds(0.5));
+                endPause.setOnFinished(ev -> {
+                    endTurnBtn.setDisable(false);
+                    endTurnBtn.fire();
+                });
+                endPause.play();
+                return;
+            }
+
+            // Figure out how many to place this tick
+            int toPlace = Math.min(batchSize, remaining);
+
+            // Re-evaluate the best target every tick! (Because threat levels change as we add troops)
+            String targetId = aiController.getBestDraftTarget(masterState, p.getId());
+
+            if (targetId != null) {
+                for (int i = 0; i < toPlace; i++) {
+                    masterState.placeDraftArmy(p.getId(), targetId);
+                }
+
+                // Update visuals
+                gameBoard.renderState(masterState);
+                draftCountLabel.setText("Armies left: " + masterState.getDraftArmies(p.getId()));
+                System.out.println("AI drafted " + toPlace + " troops to " + targetId);
+            }
+        });
+
+        draftTimeline.getKeyFrames().add(frame);
+        draftTimeline.play();
     }
 
     // Convert JavaFX Color to Web Hex String
