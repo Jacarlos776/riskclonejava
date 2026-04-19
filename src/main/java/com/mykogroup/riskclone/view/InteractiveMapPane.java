@@ -41,6 +41,7 @@ public class InteractiveMapPane extends Pane {
     private final AdjacencyService adjacencyService;
     private GameState gameState;
     private String currentLocalPlayerId = "player1"; // Default
+    private boolean interactionLocked = false;
 
     // --- Layers ---
     private final Group provinceLayer = new Group();
@@ -108,7 +109,7 @@ public class InteractiveMapPane extends Pane {
 
     // --- Handle the Source -> Destination flow ---
     public void handleProvinceClick(SVGPath clickedNode) {
-        if (gameState == null) {
+        if (gameState == null || interactionLocked) {
             System.err.println("GameState not attached to board");
             return;
         }
@@ -285,6 +286,10 @@ public class InteractiveMapPane extends Pane {
         this.setTranslateY(this.getTranslateY() - pivotY * (actualFactor - 1));
 
         event.consume();
+    }
+
+    public void setInteractionLocked(boolean locked) {
+        this.interactionLocked = locked;
     }
 
     // --- Sync View to State ---

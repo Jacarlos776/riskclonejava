@@ -201,4 +201,13 @@ public class GameState {
     public int getDraftArmies(String playerId) {
         return draftPools.getOrDefault(playerId, 0);
     }
+
+    // --- AI Helpers ---
+    public List<Province> getClaimedProvinces() {
+        return provinces.stream().filter(p -> p.getOwnerId() != null).toList();
+    }
+
+    public List<Province> getUnclaimedProvinces() {
+        return provinces.stream().filter(p -> p.getOwnerId() == null).toList();
+    }
 }
