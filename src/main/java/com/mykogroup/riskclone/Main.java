@@ -63,7 +63,7 @@ public class Main extends Application {
     @Override
     public void start(Stage stage) {
         mainScene = new Scene(new Pane(), 1280, 720);
-        stage.setTitle("Simultaneous Turn Strategy - MVP");
+        stage.setTitle("RISK: Philippines");
         stage.setScene(mainScene);
 
         resetGameToMenu(); // Boots the game cleanly!
@@ -96,8 +96,34 @@ public class Main extends Application {
         // Bind the UI to the State
         gameBoard.renderState(masterState);
 
-        // Send user to lobby
-        showSetupMenu(masterState, gameBoard);
+        // Send user to mode select
+        showModeSelect(masterState, gameBoard);
+    }
+
+    // --- MODE SELECT ---
+    private void showModeSelect(GameState masterState, InteractiveMapPane gameBoard) {
+        VBox root = new VBox(24);
+        root.setAlignment(Pos.CENTER);
+        root.setStyle("-fx-background-color: #2c3e50;");
+
+        Label title = new Label("RISK: Philippines");
+        title.setFont(Font.font("System", FontWeight.BOLD, 56));
+        title.setTextFill(Color.WHITE);
+
+        Label subtitle = new Label("Select a Game Mode");
+        subtitle.setFont(Font.font("System", 20));
+        subtitle.setTextFill(Color.LIGHTGRAY);
+
+        Button hotseatBtn = new Button("Hotseat / Single Player");
+        hotseatBtn.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-background-color: #27ae60; -fx-text-fill: white; -fx-padding: 14 40; -fx-background-radius: 8;");
+        hotseatBtn.setOnAction(e -> showSetupMenu(masterState, gameBoard));
+
+        Button lanBtn = new Button("LAN Multiplayer  (Coming Soon)");
+        lanBtn.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-background-color: #4a5568; -fx-text-fill: #888888; -fx-padding: 14 40; -fx-background-radius: 8;");
+        lanBtn.setDisable(true);
+
+        root.getChildren().addAll(title, subtitle, hotseatBtn, lanBtn);
+        mainScene.setRoot(root);
     }
     // --- PRE-GAME MENU ---
     private void showSetupMenu(GameState masterState, InteractiveMapPane gameBoard) {
