@@ -12,6 +12,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
+import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
@@ -130,20 +131,13 @@ public class InteractiveMapPane extends Pane {
 
         // --- DRAFTING PHASE ---
         if (gameState.getCurrentPhase() == GameState.GamePhase.DRAFTING) {
-            boolean placed = gameState.placeDraftArmy(currentLocalPlayerId, clickedId);
-            if (placed) {
-                // Update the visual text label immediately
-                Text label = armyLabels.get(clickedId);
-                if (label != null) {
-                    int newCount = gameState.getProvince(clickedId).orElseThrow().getArmyCount();
-                    label.setText(String.valueOf(newCount));
-                }
-                // Trigger the UI to update the "Remaining Troops" label
-                if (onDraftAction != null) onDraftAction.run();
+            Optional<Province> pData = gameState.getProvince(clickedId);
+            if (pData.isPresent() && currentLocalPlayerId.equals(pData.get().getOwnerId())) {
+                showDraftPopup(clickedNode);
             } else {
-                System.out.println("Cannot draft here or no armies left!");
+                System.out.println("Cannot draft here - province not owned!");
             }
-            return; // Exit method completely so we don't select or draw arrows
+            return;
         }
 
         if (sourceProvince == null) { // State 1: Nothing is selected yet. Set this as the Source.
@@ -338,23 +332,85 @@ public class InteractiveMapPane extends Pane {
         }
     }
 
-    private void showArmyPopup(SVGPath source, SVGPath target, int currentArmies, int maxArmies) {
-        // Clear any existing popups first
+    private void showDraftPopup(SVGPath province) {
         uiLayer.getChildren().clear();
 
-        // Build the UI Container
-        VBox popup = new VBox(5);
-        popup.setStyle("-fx-background-color: rgba(0, 0, 0, 0.8); -fx-padding: 10; -fx-background-radius: 5;");
+        int maxArmies = gameState.getDraftArmies(currentLocalPlayerId);
+        if (maxArmies <= 0) return;
+
+        VBox popup = new VBox(8);
+        popup.setStyle("-fx-background-color: rgba(0,0,0,0.8); -fx-padding: 12; -fx-background-radius: 5;");
         popup.setAlignment(Pos.CENTER);
 
-        // Labels
+        Label titleLabel = new Label("Add Troops to " + province.getId());
+        titleLabel.setTextFill(Color.WHITE);
+
+        Label countLabel = new Label("1 / " + maxArmies);
+        countLabel.setTextFill(Color.GOLD);
+        countLabel.setFont(Font.font("System", FontWeight.BOLD, 14));
+
+        Slider slider = new Slider(1, maxArmies, 1);
+        slider.setBlockIncrement(1);
+        slider.setMajorTickUnit(1);
+        slider.setMinorTickCount(0);
+        slider.setSnapToTicks(true);
+        slider.setPrefWidth(120);
+
+        slider.valueProperty().addListener((obs, oldVal, newVal) ->
+                countLabel.setText(newVal.intValue() + " / " + maxArmies));
+
+        Button minusBtn = new Button("-");
+        minusBtn.setStyle(STEPPER_STYLE);
+        minusBtn.setOnAction(e -> { if (slider.getValue() > 1) slider.setValue(slider.getValue() - 1); });
+
+        Button plusBtn = new Button("+");
+        plusBtn.setStyle(STEPPER_STYLE);
+        plusBtn.setOnAction(e -> { if (slider.getValue() < maxArmies) slider.setValue(slider.getValue() + 1); });
+
+        HBox sliderRow = new HBox(6, minusBtn, slider, plusBtn);
+        sliderRow.setAlignment(Pos.CENTER);
+
+        Button confirmBtn = new Button("Confirm");
+        confirmBtn.setStyle(CONFIRM_STYLE);
+        confirmBtn.setOnAction(e -> {
+            int count = (int) slider.getValue();
+            for (int i = 0; i < count; i++) {
+                gameState.placeDraftArmy(currentLocalPlayerId, province.getId());
+            }
+            renderState(gameState);
+            if (onDraftAction != null) onDraftAction.run();
+            uiLayer.getChildren().clear();
+        });
+
+        Button cancelBtn = new Button("Cancel");
+        cancelBtn.setStyle(CANCEL_STYLE);
+        cancelBtn.setOnAction(e -> uiLayer.getChildren().clear());
+
+        HBox btnRow = new HBox(8, confirmBtn, cancelBtn);
+        btnRow.setAlignment(Pos.CENTER);
+
+        popup.getChildren().addAll(titleLabel, sliderRow, countLabel, btnRow);
+
+        Bounds b = province.getBoundsInParent();
+        popup.setLayoutX(b.getCenterX() - 150);
+        popup.setLayoutY(b.getCenterY());
+        uiLayer.getChildren().add(popup);
+    }
+
+    private void showArmyPopup(SVGPath source, SVGPath target, int currentArmies, int maxArmies) {
+        uiLayer.getChildren().clear();
+
+        VBox popup = new VBox(8);
+        popup.setStyle("-fx-background-color: rgba(0,0,0,0.8); -fx-padding: 12; -fx-background-radius: 5;");
+        popup.setAlignment(Pos.CENTER);
+
         Label titleLabel = new Label("Send Troops");
         titleLabel.setTextFill(Color.WHITE);
 
         Label countLabel = new Label(currentArmies + " / " + maxArmies);
         countLabel.setTextFill(Color.GOLD);
+        countLabel.setFont(Font.font("System", FontWeight.BOLD, 14));
 
-        // The Slider
         Slider slider = new Slider(0, maxArmies, currentArmies);
         slider.setBlockIncrement(1);
         slider.setMajorTickUnit(1);
@@ -362,43 +418,56 @@ public class InteractiveMapPane extends Pane {
         slider.setSnapToTicks(true);
         slider.setPrefWidth(120);
 
-        // Update label when slider moves
-        slider.valueProperty().addListener((obs, oldVal, newVal) -> {
-            countLabel.setText(newVal.intValue() + " / " + maxArmies);
-        });
+        slider.valueProperty().addListener((obs, oldVal, newVal) ->
+                countLabel.setText(newVal.intValue() + " / " + maxArmies));
 
-        // Confirm Button
+        Button minusBtn = new Button("-");
+        minusBtn.setStyle(STEPPER_STYLE);
+        minusBtn.setOnAction(e -> { if (slider.getValue() > 0) slider.setValue(slider.getValue() - 1); });
+
+        Button plusBtn = new Button("+");
+        plusBtn.setStyle(STEPPER_STYLE);
+        plusBtn.setOnAction(e -> { if (slider.getValue() < maxArmies) slider.setValue(slider.getValue() + 1); });
+
+        HBox sliderRow = new HBox(6, minusBtn, slider, plusBtn);
+        sliderRow.setAlignment(Pos.CENTER);
+
         Button confirmBtn = new Button("Confirm");
+        confirmBtn.setStyle(CONFIRM_STYLE);
         confirmBtn.setOnAction(e -> {
             int finalArmies = (int) slider.getValue();
             String pathKey = source.getId() + "-" + target.getId();
 
             if (finalArmies == 0) {
-                // Cancel Move
                 gameState.setMove(new Move(currentLocalPlayerId, source.getId(), target.getId(), 0));
                 Line arrow = activeArrows.remove(pathKey);
                 if (arrow != null) arrowLayer.getChildren().remove(arrow);
-                System.out.println("Move cancelled.");
             } else {
-                // Save Move
                 gameState.setMove(new Move(currentLocalPlayerId, source.getId(), target.getId(), finalArmies));
-                if (!activeArrows.containsKey(pathKey)) {
-                    drawArrow(source, target, pathKey);
-                }
-                System.out.println("Move updated: " + finalArmies + " troops.");
+                if (!activeArrows.containsKey(pathKey)) drawArrow(source, target, pathKey);
             }
-
-            // Close popup
             uiLayer.getChildren().clear();
         });
 
-        popup.getChildren().addAll(titleLabel, slider, countLabel, confirmBtn);
+        Button cancelBtn = new Button("Cancel");
+        cancelBtn.setStyle(CANCEL_STYLE);
+        cancelBtn.setOnAction(e -> uiLayer.getChildren().clear());
 
-        // Position the popup based on destination province's location
+        HBox btnRow = new HBox(8, confirmBtn, cancelBtn);
+        btnRow.setAlignment(Pos.CENTER);
+
+        popup.getChildren().addAll(titleLabel, sliderRow, countLabel, btnRow);
+
         Bounds targetBounds = target.getBoundsInParent();
         popup.setLayoutX(targetBounds.getCenterX() - 150);
         popup.setLayoutY(targetBounds.getCenterY());
-
         uiLayer.getChildren().add(popup);
     }
+
+    private static final String STEPPER_STYLE =
+            "-fx-font-weight: bold; -fx-background-color: #4a5568; -fx-text-fill: white; -fx-pref-width: 28;";
+    private static final String CONFIRM_STYLE =
+            "-fx-font-weight: bold; -fx-background-color: #27ae60; -fx-text-fill: white;";
+    private static final String CANCEL_STYLE =
+            "-fx-font-weight: bold; -fx-background-color: #4a5568; -fx-text-fill: white;";
 }
