@@ -2,54 +2,91 @@
   {
     "name": "Ilocos",
     "bonusArmies": 3,
-    "provinces": [
-      "PH-ILN",
-      "PH-ILS",
-      "PH-LUN",
-      "PH-PAN"
-    ]
-  },
-  {
-    "name": "Cordillera",
-    "bonusArmies": 4,
-    "provinces": [
-      "PH-APA",
-      "PH-ABR",
-      "PH-KAL",
-      "PH-MOU",
-      "PH-IFU",
-      "PH-BEN"
-    ]
+    "provinces": ["PH-ILN", "PH-ILS", "PH-LUN", "PH-PAN"]
   },
   {
     "name": "Cagayan Valley",
     "bonusArmies": 3,
-    "provinces": [
-      "PH-CAG",
-      "PH-ISA",
-      "PH-QUI",
-      "PH-NUV",
-      "PH-BTN"
-    ]
+    "provinces": ["PH-BTN", "PH-CAG", "PH-ISA", "PH-NUV", "PH-QUI"]
+  },
+  {
+    "name": "Cordillera",
+    "bonusArmies": 4,
+    "provinces": ["PH-APA", "PH-ABR", "PH-KAL", "PH-MOU", "PH-IFU", "PH-BEN"]
   },
   {
     "name": "Central Luzon",
     "bonusArmies": 6,
-    "provinces": [
-      "PH-BAN",
-      "PH-PAM",
-      "PH-ZMB",
-      "PH-TAR",
-      "PH-NUE",
-      "PH-BUL",
-      "PH-AUR"
-    ]
+    "provinces": ["PH-AUR", "PH-BAN", "PH-BUL", "PH-NUE", "PH-PAM", "PH-TAR", "PH-ZMB"]
   },
   {
     "name": "National Capital",
     "bonusArmies": 2,
-    "provinces": [
-      "PH-MNL"
-    ]
+    "provinces": ["PH-MNL"]
+  },
+  {
+    "name": "Calabarzon",
+    "bonusArmies": 5,
+    "provinces": ["PH-BTG", "PH-CAV", "PH-LAG", "PH-QUE", "PH-RIZ"]
+  },
+  {
+    "name": "Mimaropa",
+    "bonusArmies": 4,
+    "provinces": ["PH-MAD", "PH-MDC", "PH-MDR", "PH-PLW", "PH-ROM"]
+  },
+  {
+    "name": "Bicol",
+    "bonusArmies": 4,
+    "provinces": ["PH-ALB", "PH-CAN", "PH-CAS", "PH-CAT", "PH-MAS", "PH-SOR"]
+  },
+  {
+    "name": "Western Visayas",
+    "bonusArmies": 4,
+    "provinces": ["PH-AKL", "PH-ANT", "PH-CAP", "PH-GUI", "PH-ILI"]
+  },
+  {
+    "name": "Negros Island",
+    "bonusArmies": 3,
+    "provinces": ["PH-NEC", "PH-NER", "PH-SIG"]
+  },
+  {
+    "name": "Central Visayas",
+    "bonusArmies": 2,
+    "provinces": ["PH-BOH", "PH-CEB"]
+  },
+  {
+    "name": "Eastern Visayas",
+    "bonusArmies": 4,
+    "provinces": ["PH-BIL", "PH-EAS", "PH-LEY", "PH-NSA", "PH-SLE", "PH-WSA"]
+  },
+  {
+    "name": "Zamboanga Peninsula",
+    "bonusArmies": 3,
+    "provinces": ["PH-ZAN", "PH-ZAS", "PH-ZSI"]
+  },
+  {
+    "name": "Northern Mindanao",
+    "bonusArmies": 4,
+    "provinces": ["PH-BUK", "PH-CAM", "PH-LAN", "PH-MSC", "PH-MSR"]
+  },
+  {
+    "name": "Davao",
+    "bonusArmies": 4,
+    "provinces": ["PH-COM", "PH-DAO", "PH-DAS", "PH-DAV"]
+  },
+  {
+    "name": "Soccsksargen",
+    "bonusArmies": 3,
+    "provinces": ["PH-NCO", "PH-SAR", "PH-SCO", "PH-SUK"]
+  },
+  {
+    "name": "Caraga",
+    "bonusArmies": 4,
+    "provinces": ["PH-AGN", "PH-AGS", "PH-DIN", "PH-SUN", "PH-SUR"]
+  },
+  {
+    "name": "BARMM",
+    "bonusArmies": 3,
+    "provinces": ["PH-BAS", "PH-LAS", "PH-SLU", "PH-TAW"]
   }
 ]
