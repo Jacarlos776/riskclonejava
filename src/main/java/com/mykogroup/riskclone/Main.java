@@ -468,6 +468,7 @@ public class Main extends Application {
                         endTurnBtn.setDisable(false);
                         endTurnBtn.fire();
                     });
+                    endPause.play();
                 }
             });
             thinkPause.play();
