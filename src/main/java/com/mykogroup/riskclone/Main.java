@@ -58,6 +58,8 @@ public class Main extends Application {
 
     private Timeline phaseTimer;
     private int timeRemaining;
+    private int phaseTurnDuration;
+    private String currentPhaseName;
     private int currentPlayerIndex = 0; // Tracks whose turn it is locally
 
     @Override
@@ -247,6 +249,7 @@ public class Main extends Application {
         masterState.setCurrentPhase(GameState.GamePhase.CLAIMING);
         masterState.resetReadyStates();
         currentPlayerIndex = 0;
+        currentPhaseName = null;
 
         // Stop the clock (Claiming has no time limit)
         if (phaseTimer != null) phaseTimer.stop();
@@ -291,7 +294,9 @@ public class Main extends Application {
         masterState.resetReadyStates();
 
         currentPlayerIndex = 0;
-        timeRemaining = 20; // 20 Second Draft
+        currentPhaseName = "Drafting";
+        phaseTurnDuration = 20;
+        timeRemaining = 20;
         gameBoard.setInteractionLocked(false);
         endTurnBtn.setDisable(false);
 
@@ -312,7 +317,9 @@ public class Main extends Application {
         masterState.resetReadyStates();
 
         currentPlayerIndex = 0;
-        timeRemaining = 60; // 60 Second Planning
+        currentPhaseName = "Planning";
+        phaseTurnDuration = 60;
+        timeRemaining = 60;
         draftCountLabel.setVisible(false); // Hide the draft tracker
 
         updatePlayerTurnUI(masterState, gameBoard);
@@ -404,6 +411,11 @@ public class Main extends Application {
                     !masterState.isPlayerAlive(masterState.getPlayers().get(currentPlayerIndex).getId()));
 
             updatePlayerTurnUI(masterState, gameBoard);
+
+            if (currentPhaseName != null) {
+                timeRemaining = phaseTurnDuration;
+                startTimer(currentPhaseName, onAllReady);
+            }
         }
     }
 
