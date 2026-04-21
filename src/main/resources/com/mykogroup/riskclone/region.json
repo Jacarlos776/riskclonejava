@@ -87,6 +87,6 @@
   {
     "name": "BARMM",
     "bonusArmies": 3,
-    "provinces": ["PH-BAS", "PH-LAS", "PH-SLU", "PH-TAW"]
+    "provinces": ["PH-BAS", "PH-LAS", "PH-SLU", "PH-MG", "PH-TAW"]
   }
 ]

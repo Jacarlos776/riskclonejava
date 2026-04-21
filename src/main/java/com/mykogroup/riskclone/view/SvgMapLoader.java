@@ -26,7 +26,14 @@ public class SvgMapLoader {
                 hexFill, strokeColor, strokeWidth);
     }
 
+    // Original overload — game code calls this, behaviour unchanged
     public static Map<String, SVGPath> loadMap(String resourcePath, Consumer<SVGPath> onProvinceClicked) {
+        return loadMap(resourcePath, onProvinceClicked, new HashMap<>());
+    }
+
+    // Extended overload — also populates outDisplayNames (id → human-readable title from SVG)
+    public static Map<String, SVGPath> loadMap(String resourcePath, Consumer<SVGPath> onProvinceClicked,
+                                               Map<String, String> outDisplayNames) {
         Map<String, SVGPath> provinceNodes = new HashMap<>();
 
         try (InputStream is = SvgMapLoader.class.getResourceAsStream(resourcePath)) {
@@ -39,6 +46,16 @@ public class SvgMapLoader {
                 String d = pathElement.getAttribute("d");
 
                 if (!id.isEmpty() && !d.isEmpty()) {
+                    // Extract the <title> child element for display name
+                    org.w3c.dom.NodeList children = pathElement.getChildNodes();
+                    for (int j = 0; j < children.getLength(); j++) {
+                        org.w3c.dom.Node child = children.item(j);
+                        if ("title".equals(child.getNodeName())) {
+                            outDisplayNames.put(id, child.getTextContent().trim());
+                            break;
+                        }
+                    }
+
                     SVGPath svgPath = new SVGPath();
                     svgPath.setContent(d);
                     svgPath.setId(id);
@@ -67,7 +84,6 @@ public class SvgMapLoader {
                     // --- CLICK LOGIC ---
                     svgPath.setOnMouseClicked(event -> {
                         if (event.getButton() == MouseButton.PRIMARY) {
-                            // Pass the clicked node back to the InteractiveMapPane
                             onProvinceClicked.accept(svgPath);
                         }
                     });
