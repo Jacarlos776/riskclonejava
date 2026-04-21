@@ -36,4 +36,9 @@ public class AdjacencyService {
     public List<String> getNeighbors(String provinceId) {
         return adjacencyMap.getOrDefault(provinceId, Collections.emptyList());
     }
+
+    // --- Expose raw map for editor tools ---
+    public Map<String, List<String>> getAdjacencyMap() {
+        return adjacencyMap;
+    }
 }

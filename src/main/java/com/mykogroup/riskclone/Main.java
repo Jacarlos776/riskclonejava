@@ -1,5 +1,6 @@
 package com.mykogroup.riskclone;
 
+import com.mykogroup.riskclone.engine.AdjacencyEditor;
 import com.mykogroup.riskclone.engine.AdjacencyService;
 import com.mykogroup.riskclone.engine.AiController;
 import com.mykogroup.riskclone.engine.RegionLoader;
@@ -10,6 +11,7 @@ import com.mykogroup.riskclone.model.Province;
 import com.mykogroup.riskclone.model.Region;
 import com.mykogroup.riskclone.view.ColorManager;
 import com.mykogroup.riskclone.view.InteractiveMapPane;
+import com.mykogroup.riskclone.view.MapEditorScene;
 import com.mykogroup.riskclone.view.SvgMapLoader;
 import javafx.animation.KeyFrame;
 import javafx.animation.PauseTransition;
@@ -33,6 +35,7 @@ import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -124,8 +127,29 @@ public class Main extends Application {
         lanBtn.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-background-color: #4a5568; -fx-text-fill: #888888; -fx-padding: 14 40; -fx-background-radius: 8;");
         lanBtn.setDisable(true);
 
-        root.getChildren().addAll(title, subtitle, hotseatBtn, lanBtn);
+        Button editMapBtn = new Button("Edit Map  [Dev]");
+        editMapBtn.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-background-color: #374151; -fx-text-fill: #9ca3af; -fx-padding: 8 24; -fx-background-radius: 8;");
+        editMapBtn.setOnAction(e -> showMapEditor());
+
+        root.getChildren().addAll(title, subtitle, hotseatBtn, lanBtn, editMapBtn);
         mainScene.setRoot(root);
+    }
+
+    // --- MAP EDITOR ---
+    private void showMapEditor() {
+        Map<String, String> displayNames = new HashMap<>();
+        Map<String, javafx.scene.shape.SVGPath> svgNodes = SvgMapLoader.loadMap(
+                "/com/mykogroup/riskclone/map.svg",
+                node -> {}, // EditorMapPane installs its own handlers
+                displayNames
+        );
+
+        AdjacencyService svc = new AdjacencyService("/com/mykogroup/riskclone/province.json");
+        List<Region> regions = RegionLoader.loadRegions("/com/mykogroup/riskclone/region.json");
+        AdjacencyEditor editor = new AdjacencyEditor(new HashMap<>(svc.getAdjacencyMap()), regions);
+
+        MapEditorScene editorScene = new MapEditorScene(svgNodes, displayNames, editor, this::resetGameToMenu);
+        mainScene.setRoot(editorScene.getRoot());
     }
     // --- PRE-GAME MENU ---
     private void showSetupMenu(GameState masterState, InteractiveMapPane gameBoard) {
