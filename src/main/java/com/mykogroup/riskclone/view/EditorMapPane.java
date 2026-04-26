@@ -1,7 +1,11 @@
 package com.mykogroup.riskclone.view;
 
 import com.mykogroup.riskclone.engine.AdjacencyEditor;
+import javafx.geometry.Bounds;
+import javafx.scene.Group;
 import javafx.scene.layout.Pane;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Line;
 import javafx.scene.shape.SVGPath;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
@@ -20,8 +24,41 @@ public class EditorMapPane extends Pane {
     private static final String COLOR_REGION    = "#f59e0b";
     private static final String COLOR_NEUTRAL   = "#6b7280";
 
+    private static final String[][] SEA_ROUTES = {
+        {"PH-BTN", "PH-CAG"},
+        {"PH-PLW", "PH-MDC"},
+        {"PH-PLW", "PH-ANT"},
+        {"PH-PLW", "PH-TAW"},
+        {"PH-TAW", "PH-SLU"},
+        {"PH-SLU", "PH-BAS"},
+        {"PH-BAS", "PH-ZSI"},
+        {"PH-ROM", "PH-AKL"},
+        {"PH-ROM", "PH-MAD"},
+        {"PH-MDR", "PH-ROM"},
+        {"PH-MAD", "PH-MDR"},
+        {"PH-MAD", "PH-QUE"},
+        {"PH-CAT", "PH-ALB"},
+        {"PH-CAT", "PH-CAS"},
+        {"PH-MAS", "PH-SOR"},
+        {"PH-MAS", "PH-CAP"},
+        {"PH-MAS", "PH-NSA"},
+        {"PH-SOR", "PH-NSA"},
+        {"PH-BIL", "PH-LEY"},
+        {"PH-CEB", "PH-LEY"},
+        {"PH-CEB", "PH-NER"},
+        {"PH-CEB", "PH-BOH"},
+        {"PH-NER", "PH-ZAN"},
+        {"PH-NEC", "PH-GUI"},
+        {"PH-ILI", "PH-GUI"},
+        {"PH-SLE", "PH-DIN"},
+        {"PH-CAM", "PH-BOH"},
+        {"PH-CAM", "PH-MSR"},
+    };
+
     private final Map<String, SVGPath> provinceNodes;
     private final AdjacencyEditor editor;
+    private final Group seaRouteLayer = new Group();
+    private boolean seaRoutesDrawn = false;
 
     private String selectedId = null;
     private final Set<String> regionHighlightIds = new HashSet<>();
@@ -35,7 +72,7 @@ public class EditorMapPane extends Pane {
         this.provinceNodes = provinceNodes;
         this.editor = editor;
 
-        // Add all province nodes to this pane
+        this.getChildren().add(seaRouteLayer);
         this.getChildren().addAll(provinceNodes.values());
 
         // Install click handlers on every province
@@ -82,7 +119,31 @@ public class EditorMapPane extends Pane {
      * Repaints every province according to current state.
      * Call this after any adjacency toggle.
      */
+    private void drawSeaRoutes() {
+        for (String[] route : SEA_ROUTES) {
+            SVGPath p1 = provinceNodes.get(route[0]);
+            SVGPath p2 = provinceNodes.get(route[1]);
+            if (p1 == null || p2 == null) continue;
+
+            Bounds b1 = p1.getBoundsInParent();
+            Bounds b2 = p2.getBoundsInParent();
+
+            Line line = new Line(b1.getCenterX(), b1.getCenterY(), b2.getCenterX(), b2.getCenterY());
+            line.setStrokeWidth(1.5);
+            line.setStroke(Color.web("#0284c7"));
+            line.getStrokeDashArray().addAll(6d, 4d);
+            line.setMouseTransparent(true);
+            line.setOpacity(0.85);
+
+            seaRouteLayer.getChildren().add(line);
+        }
+    }
+
     public void refreshColors() {
+        if (!seaRoutesDrawn) {
+            drawSeaRoutes();
+            seaRoutesDrawn = true;
+        }
         Set<String> neighbors = selectedId != null ? editor.getNeighbors(selectedId) : Collections.emptySet();
 
         for (Map.Entry<String, SVGPath> entry : provinceNodes.entrySet()) {

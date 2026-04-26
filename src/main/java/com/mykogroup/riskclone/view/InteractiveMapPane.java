@@ -44,16 +44,49 @@ public class InteractiveMapPane extends Pane {
     private String currentLocalPlayerId = "player1"; // Default
     private boolean interactionLocked = false;
 
+    private static final String[][] SEA_ROUTES = {
+        {"PH-BTN", "PH-CAG"},
+        {"PH-PLW", "PH-MDC"},
+        {"PH-PLW", "PH-ANT"},
+        {"PH-PLW", "PH-TAW"},
+        {"PH-TAW", "PH-SLU"},
+        {"PH-SLU", "PH-BAS"},
+        {"PH-BAS", "PH-ZSI"},
+        {"PH-ROM", "PH-AKL"},
+        {"PH-ROM", "PH-MAD"},
+        {"PH-MDR", "PH-ROM"},
+        {"PH-MAD", "PH-MDR"},
+        {"PH-MAD", "PH-QUE"},
+        {"PH-CAT", "PH-ALB"},
+        {"PH-CAT", "PH-CAS"},
+        {"PH-MAS", "PH-SOR"},
+        {"PH-MAS", "PH-CAP"},
+        {"PH-MAS", "PH-NSA"},
+        {"PH-SOR", "PH-NSA"},
+        {"PH-BIL", "PH-LEY"},
+        {"PH-CEB", "PH-LEY"},
+        {"PH-CEB", "PH-NER"},
+        {"PH-CEB", "PH-BOH"},
+        {"PH-NER", "PH-ZAN"},
+        {"PH-NEC", "PH-GUI"},
+        {"PH-ILI", "PH-GUI"},
+        {"PH-SLE", "PH-DIN"},
+        {"PH-CAM", "PH-BOH"},
+        {"PH-CAM", "PH-MSR"},
+    };
+
     // --- Layers ---
+    private final Group seaRouteLayer = new Group();
     private final Group provinceLayer = new Group();
     private final Group labelLayer = new Group();
     private final Group arrowLayer = new Group();
     private final Group uiLayer = new Group();
-    // ADD MORE LAYERS AS NEEDED. for example: uiLayer for the UI, etc.
 
     // Track arrows so we can delete them
     private final Map<String, Line> activeArrows = new HashMap<>();
     private final Map<String, Text> armyLabels = new HashMap<>(); // Track text
+    private final Map<String, SVGPath> provinceNodeMap = new HashMap<>();
+    private boolean seaRoutesDrawn = false;
 
     public InteractiveMapPane(AdjacencyService adjacencyService, GameState gameState) {
         this.adjacencyService = adjacencyService;
@@ -63,9 +96,7 @@ public class InteractiveMapPane extends Pane {
         this.setOnMouseDragged(this::handleMouseDragged);
         this.setOnScroll(this::handleScroll);
 
-        // Add layers to the Pane.
-        // Order matters: arrowLayer is added second, so it always renders on top.
-        this.getChildren().addAll(provinceLayer, labelLayer, arrowLayer, uiLayer);
+        this.getChildren().addAll(seaRouteLayer, provinceLayer, labelLayer, arrowLayer, uiLayer);
     }
 
     public void setOnDraftAction(Runnable onDraftAction) {
@@ -85,6 +116,7 @@ public class InteractiveMapPane extends Pane {
         provinceLayer.getChildren().addAll(provinces);
 
         for (SVGPath province : provinces) {
+            provinceNodeMap.put(province.getId(), province);
             Text label = new Text(""); // Start empty
 
             // Prevent the text from blocking clicks on the province
@@ -286,8 +318,32 @@ public class InteractiveMapPane extends Pane {
         this.interactionLocked = locked;
     }
 
+    private void drawSeaRoutes() {
+        for (String[] route : SEA_ROUTES) {
+            SVGPath p1 = provinceNodeMap.get(route[0]);
+            SVGPath p2 = provinceNodeMap.get(route[1]);
+            if (p1 == null || p2 == null) continue;
+
+            Bounds b1 = p1.getBoundsInParent();
+            Bounds b2 = p2.getBoundsInParent();
+
+            Line line = new Line(b1.getCenterX(), b1.getCenterY(), b2.getCenterX(), b2.getCenterY());
+            line.setStrokeWidth(1.5);
+            line.setStroke(Color.web("#0284c7"));
+            line.getStrokeDashArray().addAll(6d, 4d);
+            line.setMouseTransparent(true);
+            line.setOpacity(0.85);
+
+            seaRouteLayer.getChildren().add(line);
+        }
+    }
+
     // --- Sync View to State ---
     public void renderState(GameState state) {
+        if (!seaRoutesDrawn) {
+            drawSeaRoutes();
+            seaRoutesDrawn = true;
+        }
         // Loop through all SVG paths currently in the province layer
         for (var node : provinceLayer.getChildren()) {
             if (node instanceof SVGPath svgPath) {

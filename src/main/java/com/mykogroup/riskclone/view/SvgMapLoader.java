@@ -45,7 +45,7 @@ public class SvgMapLoader {
                 String id = pathElement.getAttribute("id");
                 String d = pathElement.getAttribute("d");
 
-                if (!id.isEmpty() && !d.isEmpty()) {
+                if (!id.isEmpty() && !d.isEmpty() && id.startsWith("PH-")) {
                     // Extract the <title> child element for display name
                     org.w3c.dom.NodeList children = pathElement.getChildNodes();
                     for (int j = 0; j < children.getLength(); j++) {

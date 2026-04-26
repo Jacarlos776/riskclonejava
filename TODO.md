@@ -3,9 +3,9 @@
 Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'em:
 
 ## 🟢 Phase 1: Data & Core Model
-- [ ] **PROVINCE MAPPING:** Complete the `province.json` adjacency list for all 81 provinces. Make sure to give isolated islands adjacencies as well so they're not useless.
+- [X] **PROVINCE MAPPING:** Complete the `province.json` adjacency list for all 81 provinces. Make sure to give isolated islands adjacencies as well so they're not useless.
 
-- [ ] **REGION JSON** Complete the `region.json` list for all 18 regions, grouping the provinces by regions, and giving them bonus armies
+- [X] **REGION JSON** Complete the `region.json` list for all 18 regions, grouping the provinces by regions, and giving them bonus armies
 
 - [X] **Serialization:** Create the `GameState` POJO and test saving/loading the current state to a JSON file using Jackson.
 
@@ -41,9 +41,10 @@ Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'e
   - [X] **Initial Province:** Allow the player to choose their initial province
   - [X] **Add Players:** Allow them to add and remove players
 - [X] **Win & Lose Condition:** Player loses and is not iterated upon anymore when he has no territories left and a player wins when he's the only player left with territory
-- [ ] **AI Enemy:** Implement an AI
+- [X] **AI Enemy:** Implement an AI
   - [X] **AI Toggle:** Make a button in the lobby allowing players to be AI
   - [X] **AI Drafting:** Make AI know how to draft
+- [X] **Implement Sea lines:** Visually show users what islands are adjacent to one another
 
 ## 🔴 MoSCoW
 
@@ -66,4 +67,5 @@ Add tasks here as we progress. Add a checkmark to the empty boxes as we clear 'e
 - In the initial phase, allow players to pick more than 1 province, 
 - Change draft allocation to use a slider instead of tapping
 - Rule scene, showing how the game works
+- Could refactor sea lines to be better designed, they look weird when they're just straight
 ### Won't Haves
