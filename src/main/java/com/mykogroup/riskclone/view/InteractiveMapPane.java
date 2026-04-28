@@ -43,6 +43,12 @@ public class InteractiveMapPane extends Pane {
     private String currentLocalPlayerId = "player1"; // Default
     private boolean interactionLocked = false;
 
+    // --- NETWORK MODE ---
+    // When non-null, clicks send intents instead of mutating state directly.
+    private java.util.function.Consumer<String> networkClaimHandler = null;
+    private java.util.function.Consumer<String> networkDraftHandler = null;
+    private java.util.function.Consumer<com.mykogroup.riskclone.model.Move> networkMoveHandler = null;
+
     // --- Layers ---
     private final Group provinceLayer = new Group();
     private final Group labelLayer = new Group();
@@ -118,30 +124,38 @@ public class InteractiveMapPane extends Pane {
 
         // --- CLAIMING PHASE ---
         if (gameState.getCurrentPhase() == GameState.GamePhase.CLAIMING) {
-            boolean claimed = gameState.claimStartingProvince(currentLocalPlayerId, clickedId);
-            if (claimed) {
-                // Instantly sync the visuals
-                renderState(gameState);
+            if (networkClaimHandler != null) {
+                networkClaimHandler.accept(clickedId);
             } else {
-                System.out.println("Cannot claim this province. It belongs to an enemy!");
+                boolean claimed = gameState.claimStartingProvince(currentLocalPlayerId, clickedId);
+                if (claimed) {
+                    // Instantly sync the visuals
+                    renderState(gameState);
+                } else {
+                    System.out.println("Cannot claim this province. It belongs to an enemy!");
+                }
             }
             return; // Exit method
         }
 
         // --- DRAFTING PHASE ---
         if (gameState.getCurrentPhase() == GameState.GamePhase.DRAFTING) {
-            boolean placed = gameState.placeDraftArmy(currentLocalPlayerId, clickedId);
-            if (placed) {
-                // Update the visual text label immediately
-                Text label = armyLabels.get(clickedId);
-                if (label != null) {
-                    int newCount = gameState.getProvince(clickedId).orElseThrow().getArmyCount();
-                    label.setText(String.valueOf(newCount));
-                }
-                // Trigger the UI to update the "Remaining Troops" label
-                if (onDraftAction != null) onDraftAction.run();
+            if (networkDraftHandler != null) {
+                networkDraftHandler.accept(clickedId);
             } else {
-                System.out.println("Cannot draft here or no armies left!");
+                boolean placed = gameState.placeDraftArmy(currentLocalPlayerId, clickedId);
+                if (placed) {
+                    // Update the visual text label immediately
+                    Text label = armyLabels.get(clickedId);
+                    if (label != null) {
+                        int newCount = gameState.getProvince(clickedId).orElseThrow().getArmyCount();
+                        label.setText(String.valueOf(newCount));
+                    }
+                    // Trigger the UI to update the "Remaining Troops" label
+                    if (onDraftAction != null) onDraftAction.run();
+                } else {
+                    System.out.println("Cannot draft here or no armies left!");
+                }
             }
             return; // Exit method completely so we don't select or draw arrows
         }
@@ -292,6 +306,18 @@ public class InteractiveMapPane extends Pane {
         this.interactionLocked = locked;
     }
 
+    // Switches the pane to network mode. Clicks no longer mutate the local
+    // GameState — instead the supplied consumers are called so the
+    // NetworkGameController can send them to the server.
+    public void enableNetworkMode(
+            java.util.function.Consumer<String> claimHandler,
+            java.util.function.Consumer<String> draftHandler,
+            java.util.function.Consumer<com.mykogroup.riskclone.model.Move> moveHandler) {
+        this.networkClaimHandler = claimHandler;
+        this.networkDraftHandler = draftHandler;
+        this.networkMoveHandler = moveHandler;
+    }
+
     // --- Sync View to State ---
     public void renderState(GameState state) {
         // Loop through all SVG paths currently in the province layer
@@ -336,6 +362,28 @@ public class InteractiveMapPane extends Pane {
                 }
             }
         }
+
+        // In network mode: redraw all arrows from the server's queued moves list
+        if (networkClaimHandler != null) {
+            arrowLayer.getChildren().clear();
+            activeArrows.clear();
+            for (Move move : state.getQueuedMoves()) {
+                SVGPath src = findProvinceNode(move.fromId());
+                SVGPath tgt = findProvinceNode(move.toId());
+                if (src != null && tgt != null) {
+                    drawArrow(src, tgt, move.fromId() + "-" + move.toId());
+                }
+            }
+        }
+    }
+
+    private SVGPath findProvinceNode(String provinceId) {
+        for (var node : provinceLayer.getChildren()) {
+            if (node instanceof SVGPath svgPath && provinceId.equals(svgPath.getId())) {
+                return svgPath;
+            }
+        }
+        return null;
     }
 
     private void showArmyPopup(SVGPath source, SVGPath target, int currentArmies, int maxArmies) {
@@ -373,19 +421,24 @@ public class InteractiveMapPane extends Pane {
             int finalArmies = (int) slider.getValue();
             String pathKey = source.getId() + "-" + target.getId();
 
-            if (finalArmies == 0) {
-                // Cancel Move
-                gameState.setMove(new Move(currentLocalPlayerId, source.getId(), target.getId(), 0));
-                Line arrow = activeArrows.remove(pathKey);
-                if (arrow != null) arrowLayer.getChildren().remove(arrow);
-                System.out.println("Move cancelled.");
+            Move newMove = new Move(currentLocalPlayerId, source.getId(), target.getId(), finalArmies);
+            if (networkMoveHandler != null) {
+                networkMoveHandler.accept(newMove);
             } else {
-                // Save Move
-                gameState.setMove(new Move(currentLocalPlayerId, source.getId(), target.getId(), finalArmies));
-                if (!activeArrows.containsKey(pathKey)) {
-                    drawArrow(source, target, pathKey);
+                if (finalArmies == 0) {
+                    // Cancel Move
+                    gameState.setMove(newMove);
+                    Line arrow = activeArrows.remove(pathKey);
+                    if (arrow != null) arrowLayer.getChildren().remove(arrow);
+                    System.out.println("Move cancelled.");
+                } else {
+                    // Save Move
+                    gameState.setMove(newMove);
+                    if (!activeArrows.containsKey(pathKey)) {
+                        drawArrow(source, target, pathKey);
+                    }
+                    System.out.println("Move updated: " + finalArmies + " troops.");
                 }
-                System.out.println("Move updated: " + finalArmies + " troops.");
             }
 
             // Close popup
