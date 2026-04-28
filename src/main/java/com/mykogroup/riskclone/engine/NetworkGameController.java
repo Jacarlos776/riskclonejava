@@ -88,7 +88,7 @@ public class NetworkGameController implements GameClientListener {
             finishedTurnBtn.setDisable(true);
             finishedTurnBtn.setText("Waiting for others...");
         }
-        send(MessageType.END_TURN, new Object());
+        send(MessageType.END_TURN, null);
     }
 
     // --- GameClientListener ---
@@ -187,8 +187,16 @@ public class NetworkGameController implements GameClientListener {
         });
     }
 
+    // Build the message on the calling thread, send on a daemon thread
+    // so the FX thread is never blocked by socket I/O.
     private void send(String type, Object payload) {
         if (client == null) return;
-        client.send(new NetworkMessage(type, localPlayerId, mapper.valueToTree(payload)));
+        com.fasterxml.jackson.databind.JsonNode node = (payload == null)
+                ? mapper.createObjectNode()
+                : mapper.valueToTree(payload);
+        NetworkMessage msg = new NetworkMessage(type, localPlayerId, node);
+        Thread t = new Thread(() -> client.send(msg), "ctrl-send");
+        t.setDaemon(true);
+        t.start();
     }
 }
