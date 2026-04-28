@@ -75,7 +75,10 @@ public class GameClient {
                     listener.onLobbyUpdate(p);
                 }
                 case MessageType.GAME_START -> {
+                    System.out.println("[client] GAME_START received, deserializing...");
                     GameStartPayload p = mapper.treeToValue(msg.payload, GameStartPayload.class);
+                    System.out.println("[client] GAME_START deserialized OK, players=" +
+                            (p.gameState != null ? p.gameState.getPlayers().size() : "null"));
                     listener.onGameStart(p);
                 }
                 case MessageType.STATE_UPDATE -> {

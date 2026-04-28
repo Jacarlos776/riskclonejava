@@ -72,12 +72,17 @@ public class NetworkLobbyPane extends VBox implements GameClientListener {
         // Bottom bar
         addAiBtn.setStyle("-fx-font-size: 13px; -fx-background-color: #4a5568; -fx-text-fill: white; -fx-padding: 6 16;");
         addAiBtn.setVisible(isHost);
-        addAiBtn.setOnAction(e -> { if (client != null) client.send(build(MessageType.ADD_AI, new Object())); });
+        addAiBtn.setManaged(isHost);
+        addAiBtn.setOnAction(e -> sendAsync(build(MessageType.ADD_AI, null)));
 
         startGameBtn.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-background-color: #27ae60; -fx-text-fill: white; -fx-padding: 8 24;");
         startGameBtn.setVisible(isHost);
+        startGameBtn.setManaged(isHost);
         startGameBtn.setDisable(true); // enabled once >= 4 players
-        startGameBtn.setOnAction(e -> { if (client != null) client.send(build(MessageType.START_GAME, new Object())); });
+        startGameBtn.setOnAction(e -> {
+            startGameBtn.setDisable(true); // prevent double-click while server responds
+            sendAsync(build(MessageType.START_GAME, null));
+        });
 
         Button leaveBtn = new Button("Leave");
         leaveBtn.setStyle("-fx-font-size: 13px; -fx-background-color: #ef4444; -fx-text-fill: white; -fx-padding: 6 16;");
@@ -101,11 +106,27 @@ public class NetworkLobbyPane extends VBox implements GameClientListener {
     }
 
     @Override public void onLobbyUpdate(LobbyUpdatePayload payload) {
-        Platform.runLater(() -> refreshPlayerList(payload.players));
+        System.out.println("[lobby] onLobbyUpdate: " + (payload.players == null ? "null" : payload.players.size()) + " players");
+        Platform.runLater(() -> {
+            try {
+                refreshPlayerList(payload.players);
+            } catch (Exception e) {
+                e.printStackTrace();
+                connectionInfoLabel.setText("UI error: " + e.getMessage());
+            }
+        });
     }
 
     @Override public void onGameStart(GameStartPayload payload) {
-        Platform.runLater(() -> { if (onGameStart != null) onGameStart.run(); });
+        System.out.println("[lobby] onGameStart received");
+        Platform.runLater(() -> {
+            try {
+                if (onGameStart != null) onGameStart.run();
+            } catch (Exception e) {
+                e.printStackTrace();
+                connectionInfoLabel.setText("Start error: " + e.getMessage());
+            }
+        });
     }
 
     @Override public void onStateUpdate(StateUpdatePayload p) {}
@@ -143,11 +164,11 @@ public class NetworkLobbyPane extends VBox implements GameClientListener {
         if (isOwnRow && !lp.isAi) {
             TextField nameField = new TextField(lp.displayName);
             nameField.setStyle("-fx-font-size: 14px;");
-            nameField.setOnAction(e -> client.send(
+            nameField.setOnAction(e -> sendAsync(
                     build(MessageType.UPDATE_NAME, new UpdateNamePayload(nameField.getText()))));
             nameField.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
                 if (!isFocused)
-                    client.send(build(MessageType.UPDATE_NAME, new UpdateNamePayload(nameField.getText())));
+                    sendAsync(build(MessageType.UPDATE_NAME, new UpdateNamePayload(nameField.getText())));
             });
 
             ColorPicker cp = new ColorPicker(Color.web(lp.color != null ? lp.color : "#ef4444"));
@@ -155,7 +176,7 @@ public class NetworkLobbyPane extends VBox implements GameClientListener {
             cp.setOnAction(e -> {
                 String hex = toHex(cp.getValue());
                 dot.setFill(Color.web(hex));
-                client.send(build(MessageType.UPDATE_COLOR, new UpdateColorPayload(hex)));
+                sendAsync(build(MessageType.UPDATE_COLOR, new UpdateColorPayload(hex)));
             });
 
             row.getChildren().addAll(dot, nameField, cp);
@@ -168,8 +189,20 @@ public class NetworkLobbyPane extends VBox implements GameClientListener {
         return row;
     }
 
+    // Build a message on the calling thread, then send it on a daemon thread
+    // so the FX thread is never blocked by socket I/O.
+    private void sendAsync(NetworkMessage msg) {
+        if (client == null) return;
+        Thread t = new Thread(() -> client.send(msg), "lobby-send");
+        t.setDaemon(true);
+        t.start();
+    }
+
     private NetworkMessage build(String type, Object payload) {
-        return new NetworkMessage(type, localPlayerId, mapper.valueToTree(payload));
+        com.fasterxml.jackson.databind.node.ObjectNode node = (payload == null)
+                ? mapper.createObjectNode()
+                : mapper.valueToTree(payload);
+        return new NetworkMessage(type, localPlayerId, node);
     }
 
     private static String toHex(Color c) {

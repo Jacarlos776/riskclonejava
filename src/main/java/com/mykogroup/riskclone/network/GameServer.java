@@ -99,6 +99,7 @@ public class GameServer {
     }
 
     public synchronized void onAddAi(String requesterId) {
+        System.out.println("[server] onAddAi: requesterId=" + requesterId + " hostPlayerId=" + hostPlayerId + " gameStarted=" + gameStarted);
         if (requesterId == null || !requesterId.equals(hostPlayerId) || gameStarted) return;
         String pid = "player" + (nextPlayerIndex++);
         String color = AI_COLORS[aiColorIdx++ % AI_COLORS.length];
@@ -124,7 +125,8 @@ public class GameServer {
     }
 
     public synchronized void onStartGame(String requesterId) {
-        if (!requesterId.equals(hostPlayerId)) {
+        System.out.println("[server] onStartGame: requesterId=" + requesterId + " hostPlayerId=" + hostPlayerId + " players=" + lobbyPlayers.size());
+        if (requesterId == null || !requesterId.equals(hostPlayerId)) {
             sendTo(requesterId, errorMsg("Only the host can start the game"));
             return;
         }
@@ -149,7 +151,7 @@ public class GameServer {
         Map<String, String> colorsCopy = new LinkedHashMap<>(playerColors);
         broadcast(build(MessageType.GAME_START, null,
                 new GameStartPayload(gameState, colorsCopy)));
-        broadcastStateUpdate();
+        // No broadcastStateUpdate here — GAME_START already carries the initial state
         runAiTurnsIfNeeded();
     }
 
@@ -303,7 +305,13 @@ public class GameServer {
     ObjectMapper getMapper() { return mapper; }
 
     NetworkMessage build(String type, String senderId, Object payload) {
-        return new NetworkMessage(type, senderId, mapper.valueToTree(payload));
+        try {
+            return new NetworkMessage(type, senderId, mapper.valueToTree(payload));
+        } catch (Exception e) {
+            System.err.println("[server] build() serialization failed for type=" + type + ": " + e.getMessage());
+            e.printStackTrace();
+            return new NetworkMessage(type, senderId, mapper.createObjectNode());
+        }
     }
 
     private NetworkMessage errorMsg(String message) {
