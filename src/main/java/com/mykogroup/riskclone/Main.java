@@ -64,6 +64,7 @@ public class Main extends Application {
     private com.mykogroup.riskclone.network.GameServer gameServer;          // non-null when this instance is hosting
     private com.mykogroup.riskclone.network.GameClient gameClient;          // non-null in any network session
     private com.mykogroup.riskclone.engine.NetworkGameController networkController;
+    private final com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
     @Override
     public void start(Stage stage) {
@@ -76,8 +77,22 @@ public class Main extends Application {
         stage.show();
     }
 
+    // --- Network Cleanup ---
+    private void tearDownNetwork() {
+        if (gameClient != null) {
+            gameClient.disconnect();
+            gameClient = null;
+        }
+        if (gameServer != null) {
+            gameServer.stop();
+            gameServer = null;
+        }
+        networkController = null;
+    }
+
     // Completely builds a fresh board and state, destroying the old one
     private void resetGameToMenu() {
+        tearDownNetwork();
         if (phaseTimer != null) {
             phaseTimer.stop();
         }
@@ -633,6 +648,7 @@ public class Main extends Application {
     }
 
     private void startHostSession(GameState masterState, InteractiveMapPane gameBoard) {
+        if (gameClient != null) return; // already connecting
         try {
             gameServer = new com.mykogroup.riskclone.network.GameServer(5050);
             gameServer.start();
@@ -661,16 +677,26 @@ public class Main extends Application {
             networkController.setClient(gameClient);
 
             mainScene.setRoot(lobbyPane);
-            gameClient.connect("localhost", port);
 
-            // Host sends JOIN automatically
-            gameClient.send(new com.mykogroup.riskclone.network.NetworkMessage(
-                    com.mykogroup.riskclone.network.MessageType.JOIN, null,
-                    new com.fasterxml.jackson.databind.ObjectMapper().valueToTree(
-                            new com.mykogroup.riskclone.network.payload.JoinPayload(
-                                    "Host", "#ef4444"))));
+            // Connect and send JOIN on a background thread so the FX thread stays responsive
+            final int finalPort = port;
+            new Thread(() -> {
+                try {
+                    gameClient.connect("localhost", finalPort);
+                    gameClient.send(new com.mykogroup.riskclone.network.NetworkMessage(
+                            com.mykogroup.riskclone.network.MessageType.JOIN, null,
+                            mapper.valueToTree(
+                                    new com.mykogroup.riskclone.network.payload.JoinPayload(
+                                            "Host", DEFAULT_COLORS[0]))));
+                } catch (Exception ex) {
+                    javafx.application.Platform.runLater(() -> tearDownNetwork());
+                    ex.printStackTrace();
+                }
+            }, "host-connect").start();
 
         } catch (Exception ex) {
+            tearDownNetwork();
+            javafx.application.Platform.runLater(() -> showNetworkChoice(masterState, gameBoard));
             ex.printStackTrace();
         }
     }
@@ -715,13 +741,14 @@ public class Main extends Application {
         backBtn.setStyle("-fx-font-size: 14px; -fx-background-color: #4a5568; -fx-text-fill: white;");
         backBtn.setOnAction(e -> resetGameToMenu());
 
-        joinRoot.getChildren().addAll(title,
-                new Label("Host IP:") {{ setTextFill(Color.web("#94a3b8")); }},
-                ipField,
-                new Label("Port:") {{ setTextFill(Color.web("#94a3b8")); }},
-                portField,
-                new Label("Your name:") {{ setTextFill(Color.web("#94a3b8")); }},
-                nameField,
+        Label ipLbl = new Label("Host IP:");
+        ipLbl.setTextFill(Color.web("#94a3b8"));
+        Label portLbl = new Label("Port:");
+        portLbl.setTextFill(Color.web("#94a3b8"));
+        Label nameLbl = new Label("Your name:");
+        nameLbl.setTextFill(Color.web("#94a3b8"));
+
+        joinRoot.getChildren().addAll(title, ipLbl, ipField, portLbl, portField, nameLbl, nameField,
                 statusLabel, connectBtn, backBtn);
         mainScene.setRoot(joinRoot);
     }
@@ -729,32 +756,40 @@ public class Main extends Application {
     private void startJoinSession(String host, int port, String playerName,
                                    GameState masterState, InteractiveMapPane gameBoard,
                                    Label statusLabel) {
-        try {
-            // Build controller and lobby BEFORE GameClient (setClient() breaks the circular dep)
-            networkController = new com.mykogroup.riskclone.engine.NetworkGameController();
-            com.mykogroup.riskclone.view.NetworkLobbyPane lobbyPane =
-                    new com.mykogroup.riskclone.view.NetworkLobbyPane(
-                            false, host, port,
-                            () -> launchNetworkGameView(masterState, gameBoard),
-                            this::resetGameToMenu);
+        if (gameClient != null) return; // already connecting
 
-            gameClient = new com.mykogroup.riskclone.network.GameClient(
-                    new CompositeListener(lobbyPane, networkController));
-            lobbyPane.setClient(gameClient);
-            networkController.setClient(gameClient);
+        // Build controller and lobby BEFORE GameClient (setClient() breaks the circular dep)
+        networkController = new com.mykogroup.riskclone.engine.NetworkGameController();
+        com.mykogroup.riskclone.view.NetworkLobbyPane lobbyPane =
+                new com.mykogroup.riskclone.view.NetworkLobbyPane(
+                        false, host, port,
+                        () -> launchNetworkGameView(masterState, gameBoard),
+                        this::resetGameToMenu);
 
-            mainScene.setRoot(lobbyPane);
-            gameClient.connect(host, port);
-            gameClient.send(new com.mykogroup.riskclone.network.NetworkMessage(
-                    com.mykogroup.riskclone.network.MessageType.JOIN, null,
-                    new com.fasterxml.jackson.databind.ObjectMapper().valueToTree(
-                            new com.mykogroup.riskclone.network.payload.JoinPayload(
-                                    playerName, "#3b82f6"))));
+        gameClient = new com.mykogroup.riskclone.network.GameClient(
+                new CompositeListener(lobbyPane, networkController));
+        lobbyPane.setClient(gameClient);
+        networkController.setClient(gameClient);
 
-        } catch (Exception ex) {
-            statusLabel.setText("Could not connect: " + ex.getMessage());
-            ex.printStackTrace();
-        }
+        mainScene.setRoot(lobbyPane);
+
+        // Connect and send JOIN on a background thread to avoid blocking the FX thread
+        new Thread(() -> {
+            try {
+                gameClient.connect(host, port);
+                gameClient.send(new com.mykogroup.riskclone.network.NetworkMessage(
+                        com.mykogroup.riskclone.network.MessageType.JOIN, null,
+                        mapper.valueToTree(
+                                new com.mykogroup.riskclone.network.payload.JoinPayload(
+                                        playerName, "#3b82f6"))));
+            } catch (Exception ex) {
+                javafx.application.Platform.runLater(() -> {
+                    tearDownNetwork();
+                    statusLabel.setText("Could not connect: " + ex.getMessage());
+                });
+                ex.printStackTrace();
+            }
+        }, "join-connect").start();
     }
 
     // --- CompositeListener: fans out GameClientListener callbacks to both lobby and controller ---
@@ -793,6 +828,7 @@ public class Main extends Application {
     }
 
     private void launchNetworkGameView(GameState masterState, InteractiveMapPane gameBoard) {
+        if (networkController == null) return; // session torn down before game started
         StackPane gameRoot = new StackPane();
         gameRoot.setStyle("-fx-background-color: #0a1628;");
         gameRoot.getChildren().add(gameBoard);
