@@ -65,6 +65,12 @@ public class Main extends Application {
     private String currentPhaseName;
     private int currentPlayerIndex = 0; // Tracks whose turn it is locally
 
+    // --- Network ---
+    private com.mykogroup.riskclone.network.GameServer gameServer;          // non-null when this instance is hosting
+    private com.mykogroup.riskclone.network.GameClient gameClient;          // non-null in any network session
+    private com.mykogroup.riskclone.engine.NetworkGameController networkController;
+    private final com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+
     @Override
     public void start(Stage stage) {
         mainScene = new Scene(new Pane(), 1280, 720);
@@ -76,8 +82,22 @@ public class Main extends Application {
         stage.show();
     }
 
+    // --- Network Cleanup ---
+    private void tearDownNetwork() {
+        if (gameClient != null) {
+            gameClient.disconnect();
+            gameClient = null;
+        }
+        if (gameServer != null) {
+            gameServer.stop();
+            gameServer = null;
+        }
+        networkController = null;
+    }
+
     // Completely builds a fresh board and state, destroying the old one
     private void resetGameToMenu() {
+        tearDownNetwork();
         if (phaseTimer != null) {
             phaseTimer.stop();
         }
@@ -123,9 +143,9 @@ public class Main extends Application {
         hotseatBtn.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-background-color: #27ae60; -fx-text-fill: white; -fx-padding: 14 40; -fx-background-radius: 8;");
         hotseatBtn.setOnAction(e -> showSetupMenu(masterState, gameBoard));
 
-        Button lanBtn = new Button("LAN Multiplayer  (Coming Soon)");
-        lanBtn.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-background-color: #4a5568; -fx-text-fill: #888888; -fx-padding: 14 40; -fx-background-radius: 8;");
-        lanBtn.setDisable(true);
+        Button lanBtn = new Button("LAN Multiplayer");
+        lanBtn.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-background-color: #3b82f6; -fx-text-fill: white; -fx-padding: 14 40; -fx-background-radius: 8;");
+        lanBtn.setOnAction(e -> showNetworkChoice(masterState, gameBoard));
 
         Button editMapBtn = new Button("Edit Map  [Dev]");
         editMapBtn.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-background-color: #374151; -fx-text-fill: #9ca3af; -fx-padding: 8 24; -fx-background-radius: 8;");
@@ -656,6 +676,263 @@ public class Main extends Application {
                 (int) (color.getRed() * 255),
                 (int) (color.getGreen() * 255),
                 (int) (color.getBlue() * 255));
+    }
+
+    // --- NETWORK METHODS ---
+
+    private void showNetworkChoice(GameState masterState, InteractiveMapPane gameBoard) {
+        VBox choiceRoot = new VBox(20);
+        choiceRoot.setAlignment(Pos.CENTER);
+        choiceRoot.setStyle("-fx-background-color: #1e2235;");
+
+        Label title = new Label("LAN Multiplayer");
+        title.setFont(Font.font("System", FontWeight.BOLD, 36));
+        title.setTextFill(Color.WHITE);
+
+        Button hostBtn = new Button("Host a Game");
+        hostBtn.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-background-color: #27ae60; -fx-text-fill: white; -fx-padding: 10 30;");
+        hostBtn.setOnAction(e -> startHostSession(masterState, gameBoard));
+
+        Button joinBtn = new Button("Join a Game");
+        joinBtn.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-background-color: #3b82f6; -fx-text-fill: white; -fx-padding: 10 30;");
+        joinBtn.setOnAction(e -> showJoinDialog(masterState, gameBoard));
+
+        Button backBtn = new Button("Back");
+        backBtn.setStyle("-fx-font-size: 14px; -fx-background-color: #4a5568; -fx-text-fill: white; -fx-padding: 6 20;");
+        backBtn.setOnAction(e -> resetGameToMenu());
+
+        choiceRoot.getChildren().addAll(title, hostBtn, joinBtn, backBtn);
+        mainScene.setRoot(choiceRoot);
+    }
+
+    private void startHostSession(GameState masterState, InteractiveMapPane gameBoard) {
+        if (gameClient != null) return; // already connecting
+        try {
+            gameServer = new com.mykogroup.riskclone.network.GameServer(5050);
+            gameServer.start();
+            int port = gameServer.getPort();
+
+            // Discover LAN IP
+            String ip;
+            try {
+                ip = java.net.InetAddress.getLocalHost().getHostAddress();
+            } catch (Exception ex) {
+                ip = "127.0.0.1";
+            }
+
+            // Build controller and lobby BEFORE GameClient (setClient() breaks the circular dep)
+            networkController = new com.mykogroup.riskclone.engine.NetworkGameController();
+            final String finalIp = ip;
+            com.mykogroup.riskclone.view.NetworkLobbyPane lobbyPane =
+                    new com.mykogroup.riskclone.view.NetworkLobbyPane(
+                            true, finalIp, port,
+                            () -> launchNetworkGameView(masterState, gameBoard),
+                            this::resetGameToMenu);
+
+            gameClient = new com.mykogroup.riskclone.network.GameClient(
+                    new CompositeListener(lobbyPane, networkController));
+            lobbyPane.setClient(gameClient);
+            networkController.setClient(gameClient);
+
+            mainScene.setRoot(lobbyPane);
+
+            // Connect and send JOIN on a background thread so the FX thread stays responsive
+            final int finalPort = port;
+            new Thread(() -> {
+                try {
+                    gameClient.connect("localhost", finalPort);
+                    gameClient.send(new com.mykogroup.riskclone.network.NetworkMessage(
+                            com.mykogroup.riskclone.network.MessageType.JOIN, null,
+                            mapper.valueToTree(
+                                    new com.mykogroup.riskclone.network.payload.JoinPayload(
+                                            "Host", DEFAULT_COLORS[0]))));
+                } catch (Exception ex) {
+                    javafx.application.Platform.runLater(() -> tearDownNetwork());
+                    ex.printStackTrace();
+                }
+            }, "host-connect").start();
+
+        } catch (Exception ex) {
+            tearDownNetwork();
+            javafx.application.Platform.runLater(() -> showNetworkChoice(masterState, gameBoard));
+            ex.printStackTrace();
+        }
+    }
+
+    private void showJoinDialog(GameState masterState, InteractiveMapPane gameBoard) {
+        VBox joinRoot = new VBox(15);
+        joinRoot.setAlignment(Pos.CENTER);
+        joinRoot.setStyle("-fx-background-color: #1e2235; -fx-padding: 40;");
+
+        Label title = new Label("Join a Game");
+        title.setFont(Font.font("System", FontWeight.BOLD, 28));
+        title.setTextFill(Color.WHITE);
+
+        TextField ipField = new TextField("192.168.1.x");
+        ipField.setStyle("-fx-font-size: 16px;");
+        ipField.setMaxWidth(220);
+
+        TextField portField = new TextField("5050");
+        portField.setStyle("-fx-font-size: 16px;");
+        portField.setMaxWidth(100);
+
+        TextField nameField = new TextField("Player");
+        nameField.setStyle("-fx-font-size: 16px;");
+        nameField.setMaxWidth(220);
+        nameField.setPromptText("Your name");
+
+        Label statusLabel = new Label("");
+        statusLabel.setTextFill(Color.RED);
+
+        Button connectBtn = new Button("Connect");
+        connectBtn.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-background-color: #3b82f6; -fx-text-fill: white; -fx-padding: 8 24;");
+        connectBtn.setOnAction(e -> {
+            String host = ipField.getText().trim();
+            int port;
+            try { port = Integer.parseInt(portField.getText().trim()); }
+            catch (NumberFormatException ex) { statusLabel.setText("Invalid port"); return; }
+            String name = nameField.getText().trim().isEmpty() ? "Player" : nameField.getText().trim();
+            startJoinSession(host, port, name, masterState, gameBoard, statusLabel);
+        });
+
+        Button backBtn = new Button("Back");
+        backBtn.setStyle("-fx-font-size: 14px; -fx-background-color: #4a5568; -fx-text-fill: white;");
+        backBtn.setOnAction(e -> resetGameToMenu());
+
+        Label ipLbl = new Label("Host IP:");
+        ipLbl.setTextFill(Color.web("#94a3b8"));
+        Label portLbl = new Label("Port:");
+        portLbl.setTextFill(Color.web("#94a3b8"));
+        Label nameLbl = new Label("Your name:");
+        nameLbl.setTextFill(Color.web("#94a3b8"));
+
+        joinRoot.getChildren().addAll(title, ipLbl, ipField, portLbl, portField, nameLbl, nameField,
+                statusLabel, connectBtn, backBtn);
+        mainScene.setRoot(joinRoot);
+    }
+
+    private void startJoinSession(String host, int port, String playerName,
+                                   GameState masterState, InteractiveMapPane gameBoard,
+                                   Label statusLabel) {
+        if (gameClient != null) return; // already connecting
+
+        // Build controller and lobby BEFORE GameClient (setClient() breaks the circular dep)
+        networkController = new com.mykogroup.riskclone.engine.NetworkGameController();
+        com.mykogroup.riskclone.view.NetworkLobbyPane lobbyPane =
+                new com.mykogroup.riskclone.view.NetworkLobbyPane(
+                        false, host, port,
+                        () -> launchNetworkGameView(masterState, gameBoard),
+                        this::resetGameToMenu);
+
+        gameClient = new com.mykogroup.riskclone.network.GameClient(
+                new CompositeListener(lobbyPane, networkController));
+        lobbyPane.setClient(gameClient);
+        networkController.setClient(gameClient);
+
+        mainScene.setRoot(lobbyPane);
+
+        // Connect and send JOIN on a background thread to avoid blocking the FX thread
+        new Thread(() -> {
+            try {
+                gameClient.connect(host, port);
+                gameClient.send(new com.mykogroup.riskclone.network.NetworkMessage(
+                        com.mykogroup.riskclone.network.MessageType.JOIN, null,
+                        mapper.valueToTree(
+                                new com.mykogroup.riskclone.network.payload.JoinPayload(
+                                        playerName, "#3b82f6"))));
+            } catch (Exception ex) {
+                javafx.application.Platform.runLater(() -> {
+                    tearDownNetwork();
+                    statusLabel.setText("Could not connect: " + ex.getMessage());
+                });
+                ex.printStackTrace();
+            }
+        }, "join-connect").start();
+    }
+
+    // --- CompositeListener: fans out GameClientListener callbacks to both lobby and controller ---
+    private static class CompositeListener
+            implements com.mykogroup.riskclone.network.GameClientListener {
+
+        private final com.mykogroup.riskclone.network.GameClientListener lobby;
+        private final com.mykogroup.riskclone.network.GameClientListener controller;
+
+        CompositeListener(com.mykogroup.riskclone.network.GameClientListener lobby,
+                          com.mykogroup.riskclone.network.GameClientListener controller) {
+            this.lobby = lobby;
+            this.controller = controller;
+        }
+
+        @Override public void onJoinAck(String pid) {
+            lobby.onJoinAck(pid); controller.onJoinAck(pid);
+        }
+        @Override public void onLobbyUpdate(com.mykogroup.riskclone.network.payload.LobbyUpdatePayload p) {
+            lobby.onLobbyUpdate(p); controller.onLobbyUpdate(p);
+        }
+        @Override public void onGameStart(com.mykogroup.riskclone.network.payload.GameStartPayload p) {
+            lobby.onGameStart(p); controller.onGameStart(p);
+        }
+        @Override public void onStateUpdate(com.mykogroup.riskclone.network.payload.StateUpdatePayload p) {
+            lobby.onStateUpdate(p); controller.onStateUpdate(p);
+        }
+        @Override public void onGameOver(com.mykogroup.riskclone.network.payload.GameOverPayload p) {
+            lobby.onGameOver(p); controller.onGameOver(p);
+        }
+        @Override public void onPlayerDisconnected(String pid) {
+            lobby.onPlayerDisconnected(pid); controller.onPlayerDisconnected(pid);
+        }
+        @Override public void onError(String m) { lobby.onError(m); controller.onError(m); }
+        @Override public void onDisconnected() { lobby.onDisconnected(); controller.onDisconnected(); }
+    }
+
+    private void launchNetworkGameView(GameState masterState, InteractiveMapPane gameBoard) {
+        if (networkController == null) return; // session torn down before game started
+        StackPane gameRoot = new StackPane();
+        gameRoot.setStyle("-fx-background-color: #0a1628;");
+        gameRoot.getChildren().add(gameBoard);
+
+        // Build HUD labels + button
+        Label timerLbl = new Label("Waiting for game start…");
+        timerLbl.setFont(Font.font("System", FontWeight.BOLD, 20));
+        timerLbl.setTextFill(Color.WHITE);
+        timerLbl.setStyle("-fx-background-color: rgba(0,0,0,0.5); -fx-padding: 8px; -fx-background-radius: 5px;");
+        StackPane.setAlignment(timerLbl, Pos.TOP_CENTER);
+        timerLbl.setTranslateY(20);
+
+        Label playerLbl = new Label();
+        playerLbl.setFont(Font.font("System", FontWeight.BOLD, 16));
+        playerLbl.setTextFill(Color.WHITE);
+        playerLbl.setStyle("-fx-background-color: rgba(0,0,0,0.5); -fx-padding: 5px; -fx-background-radius: 5px;");
+        StackPane.setAlignment(playerLbl, Pos.TOP_LEFT);
+        playerLbl.setTranslateY(20); playerLbl.setTranslateX(20);
+
+        Label draftLbl = new Label();
+        draftLbl.setFont(Font.font("System", FontWeight.BOLD, 16));
+        draftLbl.setTextFill(Color.GOLD);
+        draftLbl.setStyle("-fx-background-color: rgba(0,0,0,0.8); -fx-padding: 5px; -fx-background-radius: 5px;");
+        draftLbl.setVisible(false);
+        StackPane.setAlignment(draftLbl, Pos.TOP_LEFT);
+        draftLbl.setTranslateY(55); draftLbl.setTranslateX(20);
+
+        Button finishedBtn = new Button("Finished Turn");
+        finishedBtn.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-background-color: #f59e0b; -fx-text-fill: white;");
+        StackPane.setAlignment(finishedBtn, Pos.TOP_RIGHT);
+        finishedBtn.setTranslateY(20); finishedBtn.setTranslateX(-20);
+
+        gameRoot.getChildren().addAll(timerLbl, playerLbl, draftLbl, finishedBtn);
+        mainScene.setRoot(gameRoot);
+
+        // Wire controller to UI
+        networkController.attachUI(gameBoard, timerLbl, playerLbl, draftLbl, finishedBtn);
+        networkController.setOnGameOverCallback(winnerId -> {
+            javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
+                    javafx.scene.control.Alert.AlertType.INFORMATION);
+            alert.setTitle("Game Over");
+            alert.setHeaderText(winnerId == null ? "Total Annihilation! No survivors."
+                    : "Player " + winnerId + " wins!");
+            alert.setOnHidden(e -> resetGameToMenu());
+            alert.show();
+        });
     }
 
 }
