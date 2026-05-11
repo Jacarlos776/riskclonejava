@@ -124,6 +124,34 @@ public class GameServer {
                 new LobbyUpdatePayload(new ArrayList<>(lobbyPlayers))));
     }
 
+    // Host-only. Removes an AI lobby slot, or kicks a connected human player
+    // by closing their socket (onDisconnect will tidy the lobby + broadcast).
+    public synchronized void onKickPlayer(String requesterId, String targetId) {
+        if (gameStarted) return;
+        if (requesterId == null || !requesterId.equals(hostPlayerId)) return;
+        if (targetId == null || targetId.equals(hostPlayerId)) return; // host cannot kick self
+
+        LobbyPlayer target = lobbyPlayers.stream()
+                .filter(lp -> lp.playerId.equals(targetId))
+                .findFirst().orElse(null);
+        if (target == null) return;
+
+        if (target.isAi) {
+            lobbyPlayers.removeIf(lp -> lp.playerId.equals(targetId));
+            playerColors.remove(targetId);
+            broadcast(build(MessageType.LOBBY_UPDATE, null,
+                    new LobbyUpdatePayload(new ArrayList<>(lobbyPlayers))));
+        } else {
+            ClientHandler victim = clients.stream()
+                    .filter(c -> targetId.equals(c.getPlayerId()))
+                    .findFirst().orElse(null);
+            if (victim != null) {
+                sendTo(victim, errorMsg("You were kicked by the host"));
+                victim.close(); // run() finally block calls onDisconnect → broadcasts LOBBY_UPDATE
+            }
+        }
+    }
+
     public synchronized void onStartGame(String requesterId) {
         System.out.println("[server] onStartGame: requesterId=" + requesterId + " hostPlayerId=" + hostPlayerId + " players=" + lobbyPlayers.size());
         if (requesterId == null || !requesterId.equals(hostPlayerId)) {

@@ -186,6 +186,20 @@ public class NetworkLobbyPane extends VBox implements GameClientListener {
             nameLabel.setFont(Font.font(14));
             row.getChildren().addAll(dot, nameLabel);
         }
+
+        // Host kick button — appears on every row except the host's own.
+        if (isHost && !isOwnRow) {
+            Region spacer = new Region();
+            HBox.setHgrow(spacer, Priority.ALWAYS);
+            Button kickBtn = new Button("X");
+            kickBtn.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; "
+                    + "-fx-background-color: #ef4444; -fx-text-fill: white; "
+                    + "-fx-padding: 2 8; -fx-background-radius: 4;");
+            kickBtn.setTooltip(new Tooltip(lp.isAi ? "Remove AI" : "Kick player"));
+            kickBtn.setOnAction(e -> sendAsync(
+                    build(MessageType.KICK_PLAYER, new KickPlayerPayload(lp.playerId))));
+            row.getChildren().addAll(spacer, kickBtn);
+        }
         return row;
     }
 
