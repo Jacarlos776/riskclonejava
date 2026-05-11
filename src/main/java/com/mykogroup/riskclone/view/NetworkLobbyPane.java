@@ -162,13 +162,21 @@ public class NetworkLobbyPane extends VBox implements GameClientListener {
         // Own row gets editable name + colour picker; others are read-only
         boolean isOwnRow = lp.playerId.equals(localPlayerId);
         if (isOwnRow && !lp.isAi) {
-            TextField nameField = new TextField(lp.displayName);
+            // Capture the server-supplied name so focus-loss during a list
+            // refresh (which removes this field from the scene) doesn't echo
+            // an UPDATE_NAME back and trigger a LOBBY_UPDATE loop.
+            final String originalName = lp.displayName == null ? "" : lp.displayName;
+            TextField nameField = new TextField(originalName);
             nameField.setStyle("-fx-font-size: 14px;");
-            nameField.setOnAction(e -> sendAsync(
-                    build(MessageType.UPDATE_NAME, new UpdateNamePayload(nameField.getText()))));
+            Runnable maybeSendName = () -> {
+                String current = nameField.getText();
+                if (current != null && !current.equals(originalName)) {
+                    sendAsync(build(MessageType.UPDATE_NAME, new UpdateNamePayload(current)));
+                }
+            };
+            nameField.setOnAction(e -> maybeSendName.run());
             nameField.focusedProperty().addListener((obs, wasFocused, isFocused) -> {
-                if (!isFocused)
-                    sendAsync(build(MessageType.UPDATE_NAME, new UpdateNamePayload(nameField.getText())));
+                if (!isFocused) maybeSendName.run();
             });
 
             ColorPicker cp = new ColorPicker(Color.web(lp.color != null ? lp.color : "#ef4444"));
