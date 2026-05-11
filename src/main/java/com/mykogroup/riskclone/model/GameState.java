@@ -1,5 +1,6 @@
 package com.mykogroup.riskclone.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import java.util.*;
@@ -174,6 +175,7 @@ public class GameState {
         return provinces.stream().anyMatch(p -> playerId.equals(p.getOwnerId()));
     }
 
+    @JsonIgnore
     public List<Player> getAlivePlayers() {
         return players.stream().filter(p -> isPlayerAlive(p.getId())).toList();
     }
@@ -203,11 +205,19 @@ public class GameState {
         return draftPools.getOrDefault(playerId, 0);
     }
 
+    public Map<String, Integer> getDraftPools() { return draftPools; }
+    public void setDraftPools(Map<String, Integer> pools) {
+        this.draftPools.clear();
+        this.draftPools.putAll(pools);
+    }
+
     // --- AI Helpers ---
+    @JsonIgnore
     public List<Province> getClaimedProvinces() {
         return provinces.stream().filter(p -> p.getOwnerId() != null).toList();
     }
 
+    @JsonIgnore
     public List<Province> getUnclaimedProvinces() {
         return provinces.stream().filter(p -> p.getOwnerId() == null).toList();
     }

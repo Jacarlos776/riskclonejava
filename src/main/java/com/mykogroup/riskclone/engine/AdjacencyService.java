@@ -2,8 +2,10 @@ package com.mykogroup.riskclone.engine;
 
 import java.io.InputStream;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -40,5 +42,14 @@ public class AdjacencyService {
     // --- Expose raw map for editor tools ---
     public Map<String, List<String>> getAdjacencyMap() {
         return adjacencyMap;
+    }
+
+    // Returns all province IDs mentioned in the adjacency file —
+    // both as keys and as values in neighbour lists.
+    // Used by GameServer to initialise provinces without needing JavaFX.
+    public Set<String> getAllProvinceIds() {
+        Set<String> ids = new HashSet<>(adjacencyMap.keySet());
+        adjacencyMap.values().forEach(ids::addAll);
+        return ids;
     }
 }
