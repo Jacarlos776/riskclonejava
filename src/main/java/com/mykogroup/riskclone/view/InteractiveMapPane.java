@@ -53,6 +53,12 @@ public class InteractiveMapPane extends Pane {
         {"PH-SLE", "PH-DIN"}, {"PH-CAM", "PH-BOH"}, {"PH-CAM", "PH-MSR"},
     };
 
+    // --- NETWORK MODE ---
+    // When non-null, clicks send intents instead of mutating state directly.
+    private java.util.function.Consumer<String> networkClaimHandler = null;
+    private java.util.function.Consumer<String> networkDraftHandler = null;
+    private java.util.function.Consumer<com.mykogroup.riskclone.model.Move> networkMoveHandler = null;
+
     // --- Layers ---
     private final Group seaRouteLayer = new Group();
     private final Group provinceLayer = new Group();
@@ -129,12 +135,16 @@ public class InteractiveMapPane extends Pane {
 
         // --- CLAIMING PHASE ---
         if (gameState.getCurrentPhase() == GameState.GamePhase.CLAIMING) {
-            boolean claimed = gameState.claimStartingProvince(currentLocalPlayerId, clickedId);
-            if (claimed) {
-                // Instantly sync the visuals
-                renderState(gameState);
+            if (networkClaimHandler != null) {
+                networkClaimHandler.accept(clickedId);
             } else {
-                System.out.println("Cannot claim this province. It belongs to an enemy!");
+                boolean claimed = gameState.claimStartingProvince(currentLocalPlayerId, clickedId);
+                if (claimed) {
+                    // Instantly sync the visuals
+                    renderState(gameState);
+                } else {
+                    System.out.println("Cannot claim this province. It belongs to an enemy!");
+                }
             }
             return; // Exit method
         }
@@ -316,6 +326,18 @@ public class InteractiveMapPane extends Pane {
         }
     }
 
+    // Switches the pane to network mode. Clicks no longer mutate the local
+    // GameState — instead the supplied consumers are called so the
+    // NetworkGameController can send them to the server.
+    public void enableNetworkMode(
+            java.util.function.Consumer<String> claimHandler,
+            java.util.function.Consumer<String> draftHandler,
+            java.util.function.Consumer<com.mykogroup.riskclone.model.Move> moveHandler) {
+        this.networkClaimHandler = claimHandler;
+        this.networkDraftHandler = draftHandler;
+        this.networkMoveHandler = moveHandler;
+    }
+
     // --- Sync View to State ---
     public void renderState(GameState state) {
         if (!seaRoutesDrawn) {
@@ -364,6 +386,28 @@ public class InteractiveMapPane extends Pane {
                 }
             }
         }
+
+        // In network mode: redraw all arrows from the server's queued moves list
+        if (networkClaimHandler != null) {
+            arrowLayer.getChildren().clear();
+            activeArrows.clear();
+            for (Move move : state.getQueuedMoves()) {
+                SVGPath src = findProvinceNode(move.fromId());
+                SVGPath tgt = findProvinceNode(move.toId());
+                if (src != null && tgt != null) {
+                    drawArrow(src, tgt, move.fromId() + "-" + move.toId());
+                }
+            }
+        }
+    }
+
+    private SVGPath findProvinceNode(String provinceId) {
+        for (var node : provinceLayer.getChildren()) {
+            if (node instanceof SVGPath svgPath && provinceId.equals(svgPath.getId())) {
+                return svgPath;
+            }
+        }
+        return null;
     }
 
     private void showDraftPopup(SVGPath province) {
@@ -408,11 +452,17 @@ public class InteractiveMapPane extends Pane {
         confirmBtn.setStyle(CONFIRM_STYLE);
         confirmBtn.setOnAction(e -> {
             int count = (int) slider.getValue();
-            for (int i = 0; i < count; i++) {
-                gameState.placeDraftArmy(currentLocalPlayerId, province.getId());
+            if (networkDraftHandler != null) {
+                for (int i = 0; i < count; i++) {
+                    networkDraftHandler.accept(province.getId());
+                }
+            } else {
+                for (int i = 0; i < count; i++) {
+                    gameState.placeDraftArmy(currentLocalPlayerId, province.getId());
+                }
+                renderState(gameState);
+                if (onDraftAction != null) onDraftAction.run();
             }
-            renderState(gameState);
-            if (onDraftAction != null) onDraftAction.run();
             uiLayer.getChildren().clear();
         });
 
@@ -472,12 +522,15 @@ public class InteractiveMapPane extends Pane {
             int finalArmies = (int) slider.getValue();
             String pathKey = source.getId() + "-" + target.getId();
 
-            if (finalArmies == 0) {
-                gameState.setMove(new Move(currentLocalPlayerId, source.getId(), target.getId(), 0));
+            Move newMove = new Move(currentLocalPlayerId, source.getId(), target.getId(), finalArmies);
+            if (networkMoveHandler != null) {
+                networkMoveHandler.accept(newMove);
+            } else if (finalArmies == 0) {
+                gameState.setMove(newMove);
                 Line arrow = activeArrows.remove(pathKey);
                 if (arrow != null) arrowLayer.getChildren().remove(arrow);
             } else {
-                gameState.setMove(new Move(currentLocalPlayerId, source.getId(), target.getId(), finalArmies));
+                gameState.setMove(newMove);
                 if (!activeArrows.containsKey(pathKey)) drawArrow(source, target, pathKey);
             }
             uiLayer.getChildren().clear();
