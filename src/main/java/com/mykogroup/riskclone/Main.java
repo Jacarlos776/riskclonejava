@@ -9,8 +9,10 @@ import com.mykogroup.riskclone.model.GameState;
 import com.mykogroup.riskclone.model.Player;
 import com.mykogroup.riskclone.model.Province;
 import com.mykogroup.riskclone.model.Region;
+import com.mykogroup.riskclone.model.LobbyPlayer;
 import com.mykogroup.riskclone.view.ColorManager;
 import com.mykogroup.riskclone.view.InteractiveMapPane;
+import com.mykogroup.riskclone.view.LocalLobbyPane;
 import com.mykogroup.riskclone.view.MapEditorScene;
 import com.mykogroup.riskclone.view.SvgMapLoader;
 import javafx.animation.KeyFrame;
@@ -23,7 +25,10 @@ import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.ColorPicker;
 import javafx.scene.control.Label;
+import javafx.scene.control.ProgressBar;
 import javafx.scene.control.TextField;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
@@ -41,6 +46,11 @@ import java.util.Map;
 import java.util.Random;
 
 public class Main extends Application {
+    // --- Design Tokens ---
+    public static Font HEADER_FONT;
+    public static Font BODY_FONT;
+    public static String PRIMARY_BTN_STYLE;
+
     // --- Class Variables for Game Loop ---
     private AiController aiController;
     private Scene mainScene; // Tracks the main window scene
@@ -66,20 +76,104 @@ public class Main extends Application {
     private int currentPlayerIndex = 0; // Tracks whose turn it is locally
 
     // --- Network ---
-    private com.mykogroup.riskclone.network.GameServer gameServer;          // non-null when this instance is hosting
-    private com.mykogroup.riskclone.network.GameClient gameClient;          // non-null in any network session
+    private com.mykogroup.riskclone.network.GameServer gameServer; // non-null when this instance is hosting
+    private com.mykogroup.riskclone.network.GameClient gameClient; // non-null in any network session
     private com.mykogroup.riskclone.engine.NetworkGameController networkController;
     private final com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
     @Override
     public void start(Stage stage) {
+        loadDesignTokens();
+
         mainScene = new Scene(new Pane(), 1280, 720);
         stage.setTitle("RISK: Philippines");
         stage.setScene(mainScene);
 
-        resetGameToMenu(); // Boots the game cleanly!
+        showLoadingScreen(stage);
 
         stage.show();
+    }
+
+    private void loadDesignTokens() {
+        try {
+            HEADER_FONT = Font
+                    .loadFont(getClass().getResourceAsStream("/com/mykogroup/riskclone/assets/Tribo Regular.ttf"), 42);
+            BODY_FONT = Font.loadFont(
+                    getClass().getResourceAsStream("/com/mykogroup/riskclone/assets/Nunito-VariableFont_wght.ttf"), 18);
+
+            String btnImgPath = getClass().getResource("/com/mykogroup/riskclone/assets/main-menu-btn.png")
+                    .toExternalForm();
+            PRIMARY_BTN_STYLE = "-fx-background-image: url('" + btnImgPath + "'); " +
+                    "-fx-background-size: 100% 100%; " +
+                    "-fx-background-color: transparent; " +
+                    "-fx-background-repeat: no-repeat; " +
+                    "-fx-min-width: 320px; -fx-min-height: 70px; " +
+                    "-fx-max-width: 320px; -fx-max-height: 70px; " +
+                    "-fx-text-fill: white; " +
+                    "-fx-alignment: center; " +
+                    "-fx-padding: 0 0 6 0; " + // Slight bottom nudge to compensate for font baseline
+                    "-fx-cursor: hand;";
+        } catch (Exception e) {
+            System.err.println("Error loading design tokens: " + e.getMessage());
+            // Fallback
+            HEADER_FONT = Font.font("System", FontWeight.BOLD, 64);
+            BODY_FONT = Font.font("System", 18);
+            PRIMARY_BTN_STYLE = "-fx-background-color: #3d2b1f; -fx-text-fill: white;";
+        }
+    }
+
+    private void showLoadingScreen(Stage stage) {
+        StackPane loadingRoot = new StackPane();
+
+        // Background Image
+        try {
+            javafx.scene.image.Image bgImg = new javafx.scene.image.Image(
+                    getClass().getResourceAsStream("/com/mykogroup/riskclone/assets/loading-screen.png"));
+            javafx.scene.image.ImageView bgView = new javafx.scene.image.ImageView(bgImg);
+            bgView.setFitWidth(1280);
+            bgView.setFitHeight(720);
+            loadingRoot.getChildren().add(bgView);
+        } catch (Exception e) {
+            loadingRoot.setStyle("-fx-background-color: #1a1a1a;");
+            System.err.println("Could not load loading screen image: " + e.getMessage());
+        }
+
+        // Loading Bar Container
+        VBox loaderBox = new VBox(15);
+        loaderBox.setAlignment(Pos.BOTTOM_CENTER);
+        loaderBox.setPadding(new javafx.geometry.Insets(0, 0, 100, 0));
+
+        ProgressBar progressBar = new ProgressBar(0);
+        progressBar.setPrefWidth(600);
+        progressBar.setPrefHeight(20);
+        progressBar.setStyle(
+                "-fx-accent: #d4af37; -fx-control-inner-background: #3d2b1f; -fx-background-color: transparent;");
+
+        Label loadingLabel = new Label("Preparing for War...");
+        if (BODY_FONT != null)
+            loadingLabel.setFont(BODY_FONT);
+        else
+            loadingLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
+        loadingLabel.setTextFill(Color.web("#d4af37"));
+
+        loaderBox.getChildren().addAll(loadingLabel, progressBar);
+        loadingRoot.getChildren().add(loaderBox);
+
+        mainScene.setRoot(loadingRoot);
+
+        // Simulated Loading Logic
+        Timeline loadingTimeline = new Timeline(
+                new KeyFrame(Duration.millis(30), e -> {
+                    progressBar.setProgress(progressBar.getProgress() + 0.01);
+                    if (progressBar.getProgress() >= 0.4 && progressBar.getProgress() < 0.41) {
+                        loadingLabel.setText("Gathering Tribes...");
+                    } else if (progressBar.getProgress() >= 0.7 && progressBar.getProgress() < 0.71) {
+                        loadingLabel.setText("Consulting the Babaylan...");
+                    }
+                }));
+        loadingTimeline.setCycleCount(100);
+        loadingTimeline.setOnFinished(e -> resetGameToMenu());
+        loadingTimeline.play();
     }
 
     // --- Network Cleanup ---
@@ -108,7 +202,8 @@ public class Main extends Application {
         GameState masterState = new GameState();
         InteractiveMapPane gameBoard = new InteractiveMapPane(adjacencyService, masterState);
 
-        Map<String, SVGPath> mapNodes = SvgMapLoader.loadMap("/com/mykogroup/riskclone/map.svg", gameBoard::handleProvinceClick);
+        Map<String, SVGPath> mapNodes = SvgMapLoader.loadMap("/com/mykogroup/riskclone/map.svg",
+                gameBoard::handleProvinceClick);
         gameBoard.addProvinces(mapNodes.values());
 
         masterState.setRegions(RegionLoader.loadRegions("/com/mykogroup/riskclone/region.json"));
@@ -127,31 +222,46 @@ public class Main extends Application {
 
     // --- MODE SELECT ---
     private void showModeSelect(GameState masterState, InteractiveMapPane gameBoard) {
-        VBox root = new VBox(24);
-        root.setAlignment(Pos.CENTER);
-        root.setStyle("-fx-background-color: #2c3e50;");
+        StackPane root = new StackPane();
 
-        Label title = new Label("RISK: Philippines");
-        title.setFont(Font.font("System", FontWeight.BOLD, 56));
-        title.setTextFill(Color.WHITE);
+        // GIF Background
+        try {
+            javafx.scene.image.Image bgGif = new javafx.scene.image.Image(
+                    getClass().getResourceAsStream("/com/mykogroup/riskclone/assets/main-menu-bg.gif"));
+            javafx.scene.image.ImageView bgView = new javafx.scene.image.ImageView(bgGif);
+            bgView.setFitWidth(1280);
+            bgView.setFitHeight(720);
+            root.getChildren().add(bgView);
+        } catch (Exception e) {
+            root.setStyle("-fx-background-color: #2c3e50;");
+            System.err.println("Could not load menu GIF: " + e.getMessage());
+        }
 
-        Label subtitle = new Label("Select a Game Mode");
-        subtitle.setFont(Font.font("System", 20));
-        subtitle.setTextFill(Color.LIGHTGRAY);
+        VBox menuContent = new VBox(15);
+        menuContent.setAlignment(Pos.CENTER);
+        menuContent.setTranslateY(120); // Move buttons down to match image layout
 
-        Button hotseatBtn = new Button("Hotseat / Single Player");
-        hotseatBtn.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-background-color: #27ae60; -fx-text-fill: white; -fx-padding: 14 40; -fx-background-radius: 8;");
+        Button hotseatBtn = new Button("LOKAL PLAY");
+        hotseatBtn.setStyle(PRIMARY_BTN_STYLE);
+        if (HEADER_FONT != null)
+            hotseatBtn.setFont(HEADER_FONT);
         hotseatBtn.setOnAction(e -> showSetupMenu(masterState, gameBoard));
 
-        Button lanBtn = new Button("LAN Multiplayer");
-        lanBtn.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-background-color: #3b82f6; -fx-text-fill: white; -fx-padding: 14 40; -fx-background-radius: 8;");
-        lanBtn.setOnAction(e -> showNetworkChoice(masterState, gameBoard));
+        Button hostBtn = new Button("HOST GAME");
+        hostBtn.setStyle(PRIMARY_BTN_STYLE);
+        if (HEADER_FONT != null)
+            hostBtn.setFont(HEADER_FONT);
+        hostBtn.setOnAction(e -> startHostSession(masterState, gameBoard));
 
-        Button editMapBtn = new Button("Edit Map  [Dev]");
-        editMapBtn.setStyle("-fx-font-size: 13px; -fx-font-weight: bold; -fx-background-color: #374151; -fx-text-fill: #9ca3af; -fx-padding: 8 24; -fx-background-radius: 8;");
-        editMapBtn.setOnAction(e -> showMapEditor());
+        Button joinBtn = new Button("JOIN GAME");
+        joinBtn.setStyle(PRIMARY_BTN_STYLE);
+        if (HEADER_FONT != null)
+            joinBtn.setFont(HEADER_FONT);
+        joinBtn.setOnAction(e -> showJoinDialog(masterState, gameBoard));
 
-        root.getChildren().addAll(title, subtitle, hotseatBtn, lanBtn, editMapBtn);
+        menuContent.getChildren().addAll(hotseatBtn, hostBtn, joinBtn);
+        root.getChildren().add(menuContent);
+
         mainScene.setRoot(root);
     }
 
@@ -160,9 +270,9 @@ public class Main extends Application {
         Map<String, String> displayNames = new HashMap<>();
         Map<String, javafx.scene.shape.SVGPath> svgNodes = SvgMapLoader.loadMap(
                 "/com/mykogroup/riskclone/map.svg",
-                node -> {}, // EditorMapPane installs its own handlers
-                displayNames
-        );
+                node -> {
+                }, // EditorMapPane installs its own handlers
+                displayNames);
 
         AdjacencyService svc = new AdjacencyService("/com/mykogroup/riskclone/province.json");
         List<Region> regions = RegionLoader.loadRegions("/com/mykogroup/riskclone/region.json");
@@ -171,65 +281,27 @@ public class Main extends Application {
         MapEditorScene editorScene = new MapEditorScene(svgNodes, displayNames, editor, this::resetGameToMenu);
         mainScene.setRoot(editorScene.getRoot());
     }
+
     // --- PRE-GAME MENU ---
     private void showSetupMenu(GameState masterState, InteractiveMapPane gameBoard) {
-        VBox menuRoot = new VBox(20);
-        menuRoot.setAlignment(Pos.CENTER);
-        menuRoot.setStyle("-fx-background-color: #2c3e50;");
+        LocalLobbyPane lobbyPane = new LocalLobbyPane(
+                () -> {
+                    // Start Game Logic
+                    masterState.getPlayers().clear();
+                    List<LobbyPlayer> lobbyPlayers = ((LocalLobbyPane) mainScene.getRoot()).getPlayers();
+                    int index = 1;
+                    for (LobbyPlayer lp : lobbyPlayers) {
+                        String pId = "player" + index;
+                        masterState.getPlayers().add(new Player(pId, lp.getName(), lp.isAi(), lp.getAvatarPath()));
+                        ColorManager.setPlayerColor(pId, lp.getColorHex());
+                        index++;
+                    }
+                    launchGameView(masterState, gameBoard);
+                },
+                this::resetGameToMenu
+        );
 
-        Label titleLabel = new Label("Game Setup");
-        titleLabel.setFont(Font.font("System", FontWeight.BOLD, 48));
-        titleLabel.setTextFill(Color.WHITE);
-
-        playerRowsContainer = new VBox(15);
-        playerRowsContainer.setAlignment(Pos.CENTER);
-
-        // Generate the minimum 4 players
-        for (int i = 0; i < 4; i++) {
-            addPlayerRow();
-        }
-
-        // Add Player Button
-        Button addPlayerBtn = new Button("+ Add Player");
-        addPlayerBtn.setStyle("-fx-font-size: 14px; -fx-background-color: #4a5568; -fx-text-fill: white; -fx-padding: 5 15;");
-        addPlayerBtn.setOnAction(e -> addPlayerRow());
-
-        // Start Button
-        Button startBtn = new Button("Start Game");
-        startBtn.setStyle("-fx-font-size: 20px; -fx-font-weight: bold; -fx-background-color: #27ae60; -fx-text-fill: white; -fx-padding: 10 30;");
-
-        startBtn.setOnAction(e -> {
-            masterState.getPlayers().clear();
-
-            // Loop through our dynamic container to save the customized players
-            int index = 1;
-            for (Node node : playerRowsContainer.getChildren()) {
-                if (node instanceof HBox row) {
-                    // Extract the values from the UI elements in the row
-                    TextField nameInput = (TextField) row.getChildren().get(1);
-                    Button aiToggle = (Button) row.getChildren().get(2); // Get the toggle button
-                    ColorPicker colorPicker = (ColorPicker) row.getChildren().get(3);
-
-                    // Check if the button says "AI"osh
-                    boolean isAi = aiToggle.getText().contains("AI");
-
-                    String pId = "player" + index;
-                    masterState.getPlayers().add(new Player(pId, nameInput.getText(), isAi));
-                    ColorManager.setPlayerColor(pId, toHexString(colorPicker.getValue()));
-
-                    index++;
-                }
-            }
-
-            launchGameView(masterState, gameBoard);
-        });
-
-        Button backBtn = new Button("Back");
-        backBtn.setStyle("-fx-font-size: 13px; -fx-background-color: #4a5568; -fx-text-fill: white; -fx-padding: 6 16;");
-        backBtn.setOnAction(e -> resetGameToMenu());
-
-        menuRoot.getChildren().addAll(titleLabel, playerRowsContainer, addPlayerBtn, startBtn, backBtn);
-        mainScene.setRoot(menuRoot); // Attach menu to the window
+        mainScene.setRoot(lobbyPane);
     }
 
     // --- GAME LAUNCHER ---
@@ -255,30 +327,44 @@ public class Main extends Application {
     // --- BUILDS THE UI ONCE ---
     private void initUI(StackPane root, GameState masterState, InteractiveMapPane gameBoard) {
         timerLabel = new Label();
-        timerLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
+        if (BODY_FONT != null)
+            timerLabel.setFont(Font.font(BODY_FONT.getFamily(), FontWeight.BOLD, 24));
+        else
+            timerLabel.setFont(Font.font("System", FontWeight.BOLD, 24));
         timerLabel.setTextFill(Color.WHITE);
         timerLabel.setStyle("-fx-background-color: rgba(0,0,0,0.5); -fx-padding: 10px; -fx-background-radius: 5px;");
         StackPane.setAlignment(timerLabel, Pos.TOP_CENTER);
         timerLabel.setTranslateY(20);
 
         playerTurnLabel = new Label();
-        playerTurnLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
+        if (BODY_FONT != null)
+            playerTurnLabel.setFont(Font.font(BODY_FONT.getFamily(), FontWeight.BOLD, 18));
+        else
+            playerTurnLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
         playerTurnLabel.setTextFill(Color.WHITE);
-        playerTurnLabel.setStyle("-fx-background-color: rgba(0,0,0,0.5); -fx-padding: 5px; -fx-background-radius: 5px;");
+        playerTurnLabel
+                .setStyle("-fx-background-color: rgba(0,0,0,0.5); -fx-padding: 5px; -fx-background-radius: 5px;");
         StackPane.setAlignment(playerTurnLabel, Pos.TOP_LEFT);
         playerTurnLabel.setTranslateY(20);
         playerTurnLabel.setTranslateX(20);
 
         draftCountLabel = new Label();
-        draftCountLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
+        if (BODY_FONT != null)
+            draftCountLabel.setFont(Font.font(BODY_FONT.getFamily(), FontWeight.BOLD, 18));
+        else
+            draftCountLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
         draftCountLabel.setTextFill(Color.GOLD);
-        draftCountLabel.setStyle("-fx-background-color: rgba(0,0,0,0.8); -fx-padding: 5px; -fx-background-radius: 5px;");
+        draftCountLabel
+                .setStyle("-fx-background-color: rgba(0,0,0,0.8); -fx-padding: 5px; -fx-background-radius: 5px;");
         StackPane.setAlignment(draftCountLabel, Pos.TOP_LEFT);
         draftCountLabel.setTranslateY(60); // Place below player name
         draftCountLabel.setTranslateX(20);
 
         endTurnBtn = new Button("End Turn");
-        endTurnBtn.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-background-color: #f59e0b; -fx-text-fill: white;");
+        endTurnBtn.setStyle(
+                "-fx-font-size: 16px; -fx-font-weight: bold; -fx-background-color: #f59e0b; -fx-text-fill: white;");
+        if (BODY_FONT != null)
+            endTurnBtn.setFont(Font.font(BODY_FONT.getFamily(), FontWeight.BOLD, 16));
         StackPane.setAlignment(endTurnBtn, Pos.TOP_RIGHT);
         endTurnBtn.setTranslateY(20);
         endTurnBtn.setTranslateX(-20);
@@ -300,7 +386,8 @@ public class Main extends Application {
         currentPhaseName = null;
 
         // Stop the clock (Claiming has no time limit)
-        if (phaseTimer != null) phaseTimer.stop();
+        if (phaseTimer != null)
+            phaseTimer.stop();
         timerLabel.setText("Claiming Phase");
         timerLabel.setTextFill(Color.GOLD);
 
@@ -354,7 +441,8 @@ public class Main extends Application {
         updatePlayerTurnUI(masterState, gameBoard);
 
         // Setup End Turn button for Drafting
-        endTurnBtn.setOnAction(e -> handleHotseatPass(masterState, gameBoard, () -> startPlanningPhase(masterState, gameBoard)));
+        endTurnBtn.setOnAction(
+                e -> handleHotseatPass(masterState, gameBoard, () -> startPlanningPhase(masterState, gameBoard)));
 
         startTimer("Drafting", () -> startPlanningPhase(masterState, gameBoard));
     }
@@ -373,14 +461,16 @@ public class Main extends Application {
         updatePlayerTurnUI(masterState, gameBoard);
 
         // Setup End Turn button for Planning
-        endTurnBtn.setOnAction(e -> handleHotseatPass(masterState, gameBoard, () -> triggerResolutionPhase(masterState, gameBoard)));
+        endTurnBtn.setOnAction(
+                e -> handleHotseatPass(masterState, gameBoard, () -> triggerResolutionPhase(masterState, gameBoard)));
 
         startTimer("Planning", () -> triggerResolutionPhase(masterState, gameBoard));
     }
 
     // RESOLUTION PHASE
     private void triggerResolutionPhase(GameState masterState, InteractiveMapPane gameBoard) {
-        if (phaseTimer != null) phaseTimer.stop();
+        if (phaseTimer != null)
+            phaseTimer.stop();
 
         masterState.setCurrentPhase(GameState.GamePhase.RESOLUTION);
         timerLabel.setText("RESOLUTION PHASE");
@@ -431,7 +521,8 @@ public class Main extends Application {
         }
 
         Button playAgainBtn = new Button("Play Again");
-        playAgainBtn.setStyle("-fx-font-size: 24px; -fx-font-weight: bold; -fx-background-color: #27ae60; -fx-text-fill: white; -fx-padding: 15 40;");
+        playAgainBtn.setStyle(
+                "-fx-font-size: 24px; -fx-font-weight: bold; -fx-background-color: #27ae60; -fx-text-fill: white; -fx-padding: 15 40;");
 
         // Triggers the factory reset!
         playAgainBtn.setOnAction(e -> resetGameToMenu());
@@ -494,7 +585,8 @@ public class Main extends Application {
                     aiController.takeClaimingTurn(masterState, p.getId());
                     gameBoard.renderState(masterState); // Instantly show their choice
 
-                    // Wait another 0.5s so the player can actually see the province change color, then end turn
+                    // Wait another 0.5s so the player can actually see the province change color,
+                    // then end turn
                     PauseTransition endPause = new PauseTransition(Duration.seconds(0.5));
                     endPause.setOnFinished(ev -> {
                         endTurnBtn.setDisable(false);
@@ -507,10 +599,12 @@ public class Main extends Application {
                     // --- Trigger the Planning Logic ---
                     aiController.takePlanningTurn(masterState, p.getId());
 
-                    // Instantly render the map so the UI can draw the arrows for the AI's queued moves!
+                    // Instantly render the map so the UI can draw the arrows for the AI's queued
+                    // moves!
                     gameBoard.renderState(masterState);
 
-                    // Add a small pause so players can briefly see the AI's arrows before the turn passes
+                    // Add a small pause so players can briefly see the AI's arrows before the turn
+                    // passes
                     PauseTransition endPause = new PauseTransition(Duration.seconds(1.0));
                     endPause.setOnFinished(ev -> {
                         endTurnBtn.setDisable(false);
@@ -529,13 +623,15 @@ public class Main extends Application {
     }
 
     private void startTimer(String phaseName, Runnable onComplete) {
-        if (phaseTimer != null) phaseTimer.stop();
+        if (phaseTimer != null)
+            phaseTimer.stop();
         timerLabel.setTextFill(Color.WHITE);
 
         phaseTimer = new Timeline(new KeyFrame(Duration.seconds(1), event -> {
             timeRemaining--;
             timerLabel.setText(phaseName + " Phase: " + timeRemaining + "s");
-            if (timeRemaining <= 5) timerLabel.setTextFill(Color.RED);
+            if (timeRemaining <= 5)
+                timerLabel.setTextFill(Color.RED);
         }));
         phaseTimer.setCycleCount(timeRemaining);
         phaseTimer.setOnFinished(event -> onComplete.run());
@@ -550,33 +646,45 @@ public class Main extends Application {
         row.setAlignment(Pos.CENTER);
 
         Label pLabel = new Label(); // Text set by refreshPlayerRows()
-        pLabel.setFont(Font.font(18));
+        if (BODY_FONT != null)
+            pLabel.setFont(Font.font(BODY_FONT.getFamily(), 18));
+        else
+            pLabel.setFont(Font.font(18));
         pLabel.setTextFill(Color.WHITE);
 
         TextField nameInput = new TextField(); // Text set by refreshPlayerRows()
-        nameInput.setFont(Font.font(16));
+        if (BODY_FONT != null)
+            nameInput.setFont(Font.font(BODY_FONT.getFamily(), 16));
+        else
+            nameInput.setFont(Font.font(16));
 
         Button aiToggleBtn = new Button("👤 Human");
-        aiToggleBtn.setStyle("-fx-background-color: #3b82f6; -fx-text-fill: white; -fx-font-weight: bold; -fx-pref-width: 100px;");
+        aiToggleBtn.setStyle(
+                "-fx-background-color: #3b82f6; -fx-text-fill: white; -fx-font-weight: bold; -fx-pref-width: 100px;");
+        if (BODY_FONT != null)
+            aiToggleBtn.setFont(Font.font(BODY_FONT.getFamily(), FontWeight.BOLD, 14));
 
         aiToggleBtn.setOnAction(e -> {
             if (aiToggleBtn.getText().contains("Human")) {
                 // Switch TO AI
                 aiToggleBtn.setText("🤖 AI");
-                aiToggleBtn.setStyle("-fx-background-color: #8b5cf6; -fx-text-fill: white; -fx-font-weight: bold; -fx-pref-width: 100px;");
+                aiToggleBtn.setStyle(
+                        "-fx-background-color: #8b5cf6; -fx-text-fill: white; -fx-font-weight: bold; -fx-pref-width: 100px;");
                 nameInput.setDisable(true); // Lock the text field
                 nameInput.setText(AI_NAMES[rand.nextInt(AI_NAMES.length)]); // Assign historical name
             } else {
                 // Switch TO Human
                 aiToggleBtn.setText("👤 Human");
-                aiToggleBtn.setStyle("-fx-background-color: #3b82f6; -fx-text-fill: white; -fx-font-weight: bold; -fx-pref-width: 100px;");
+                aiToggleBtn.setStyle(
+                        "-fx-background-color: #3b82f6; -fx-text-fill: white; -fx-font-weight: bold; -fx-pref-width: 100px;");
                 nameInput.setDisable(false); // Unlock the text field
                 nameInput.setText(""); // Clear it so refreshPlayerRows can reset it
                 refreshPlayerRows();
             }
         });
 
-        // Grab a default color based on their index, looping back to the start if we exceed 8
+        // Grab a default color based on their index, looping back to the start if we
+        // exceed 8
         String defaultHex = DEFAULT_COLORS[index % DEFAULT_COLORS.length];
         ColorPicker colorPicker = new ColorPicker(Color.web(defaultHex));
         colorPicker.setStyle("-fx-font-size: 14px;");
@@ -655,7 +763,8 @@ public class Main extends Application {
             // Figure out how many to place this tick
             int toPlace = Math.min(batchSize, remaining);
 
-            // Re-evaluate the best target every tick! (Because threat levels change as we add troops)
+            // Re-evaluate the best target every tick! (Because threat levels change as we
+            // add troops)
             String targetId = aiController.getBestDraftTarget(masterState, p.getId());
 
             if (targetId != null) {
@@ -684,33 +793,9 @@ public class Main extends Application {
 
     // --- NETWORK METHODS ---
 
-    private void showNetworkChoice(GameState masterState, InteractiveMapPane gameBoard) {
-        VBox choiceRoot = new VBox(20);
-        choiceRoot.setAlignment(Pos.CENTER);
-        choiceRoot.setStyle("-fx-background-color: #1e2235;");
-
-        Label title = new Label("LAN Multiplayer");
-        title.setFont(Font.font("System", FontWeight.BOLD, 36));
-        title.setTextFill(Color.WHITE);
-
-        Button hostBtn = new Button("Host a Game");
-        hostBtn.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-background-color: #27ae60; -fx-text-fill: white; -fx-padding: 10 30;");
-        hostBtn.setOnAction(e -> startHostSession(masterState, gameBoard));
-
-        Button joinBtn = new Button("Join a Game");
-        joinBtn.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-background-color: #3b82f6; -fx-text-fill: white; -fx-padding: 10 30;");
-        joinBtn.setOnAction(e -> showJoinDialog(masterState, gameBoard));
-
-        Button backBtn = new Button("Back");
-        backBtn.setStyle("-fx-font-size: 14px; -fx-background-color: #4a5568; -fx-text-fill: white; -fx-padding: 6 20;");
-        backBtn.setOnAction(e -> resetGameToMenu());
-
-        choiceRoot.getChildren().addAll(title, hostBtn, joinBtn, backBtn);
-        mainScene.setRoot(choiceRoot);
-    }
-
     private void startHostSession(GameState masterState, InteractiveMapPane gameBoard) {
-        if (gameClient != null) return; // already connecting
+        if (gameClient != null)
+            return; // already connecting
         try {
             gameServer = new com.mykogroup.riskclone.network.GameServer(5050);
             gameServer.start();
@@ -724,14 +809,14 @@ public class Main extends Application {
                 ip = "127.0.0.1";
             }
 
-            // Build controller and lobby BEFORE GameClient (setClient() breaks the circular dep)
+            // Build controller and lobby BEFORE GameClient (setClient() breaks the circular
+            // dep)
             networkController = new com.mykogroup.riskclone.engine.NetworkGameController();
             final String finalIp = ip;
-            com.mykogroup.riskclone.view.NetworkLobbyPane lobbyPane =
-                    new com.mykogroup.riskclone.view.NetworkLobbyPane(
-                            true, finalIp, port,
-                            () -> launchNetworkGameView(masterState, gameBoard),
-                            this::resetGameToMenu);
+            com.mykogroup.riskclone.view.NetworkLobbyPane lobbyPane = new com.mykogroup.riskclone.view.NetworkLobbyPane(
+                    true, finalIp, port,
+                    () -> launchNetworkGameView(masterState, gameBoard),
+                    this::resetGameToMenu);
 
             gameClient = new com.mykogroup.riskclone.network.GameClient(
                     new CompositeListener(lobbyPane, networkController));
@@ -740,7 +825,8 @@ public class Main extends Application {
 
             mainScene.setRoot(lobbyPane);
 
-            // Connect and send JOIN on a background thread so the FX thread stays responsive
+            // Connect and send JOIN on a background thread so the FX thread stays
+            // responsive
             final int finalPort = port;
             new Thread(() -> {
                 try {
@@ -758,7 +844,7 @@ public class Main extends Application {
 
         } catch (Exception ex) {
             tearDownNetwork();
-            javafx.application.Platform.runLater(() -> showNetworkChoice(masterState, gameBoard));
+            javafx.application.Platform.runLater(() -> showModeSelect(masterState, gameBoard));
             ex.printStackTrace();
         }
     }
@@ -789,12 +875,17 @@ public class Main extends Application {
         statusLabel.setTextFill(Color.RED);
 
         Button connectBtn = new Button("Connect");
-        connectBtn.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-background-color: #3b82f6; -fx-text-fill: white; -fx-padding: 8 24;");
+        connectBtn.setStyle(
+                "-fx-font-size: 16px; -fx-font-weight: bold; -fx-background-color: #3b82f6; -fx-text-fill: white; -fx-padding: 8 24;");
         connectBtn.setOnAction(e -> {
             String host = ipField.getText().trim();
             int port;
-            try { port = Integer.parseInt(portField.getText().trim()); }
-            catch (NumberFormatException ex) { statusLabel.setText("Invalid port"); return; }
+            try {
+                port = Integer.parseInt(portField.getText().trim());
+            } catch (NumberFormatException ex) {
+                statusLabel.setText("Invalid port");
+                return;
+            }
             String name = nameField.getText().trim().isEmpty() ? "Player" : nameField.getText().trim();
             startJoinSession(host, port, name, masterState, gameBoard, statusLabel);
         });
@@ -816,17 +907,18 @@ public class Main extends Application {
     }
 
     private void startJoinSession(String host, int port, String playerName,
-                                   GameState masterState, InteractiveMapPane gameBoard,
-                                   Label statusLabel) {
-        if (gameClient != null) return; // already connecting
+            GameState masterState, InteractiveMapPane gameBoard,
+            Label statusLabel) {
+        if (gameClient != null)
+            return; // already connecting
 
-        // Build controller and lobby BEFORE GameClient (setClient() breaks the circular dep)
+        // Build controller and lobby BEFORE GameClient (setClient() breaks the circular
+        // dep)
         networkController = new com.mykogroup.riskclone.engine.NetworkGameController();
-        com.mykogroup.riskclone.view.NetworkLobbyPane lobbyPane =
-                new com.mykogroup.riskclone.view.NetworkLobbyPane(
-                        false, host, port,
-                        () -> launchNetworkGameView(masterState, gameBoard),
-                        this::resetGameToMenu);
+        com.mykogroup.riskclone.view.NetworkLobbyPane lobbyPane = new com.mykogroup.riskclone.view.NetworkLobbyPane(
+                false, host, port,
+                () -> launchNetworkGameView(masterState, gameBoard),
+                this::resetGameToMenu);
 
         gameClient = new com.mykogroup.riskclone.network.GameClient(
                 new CompositeListener(lobbyPane, networkController));
@@ -854,7 +946,8 @@ public class Main extends Application {
         }, "join-connect").start();
     }
 
-    // --- CompositeListener: fans out GameClientListener callbacks to both lobby and controller ---
+    // --- CompositeListener: fans out GameClientListener callbacks to both lobby
+    // and controller ---
     private static class CompositeListener
             implements com.mykogroup.riskclone.network.GameClientListener {
 
@@ -862,39 +955,69 @@ public class Main extends Application {
         private final com.mykogroup.riskclone.network.GameClientListener controller;
 
         CompositeListener(com.mykogroup.riskclone.network.GameClientListener lobby,
-                          com.mykogroup.riskclone.network.GameClientListener controller) {
+                com.mykogroup.riskclone.network.GameClientListener controller) {
             this.lobby = lobby;
             this.controller = controller;
         }
 
-        @Override public void onJoinAck(String pid) {
-            lobby.onJoinAck(pid); controller.onJoinAck(pid);
+        @Override
+        public void onJoinAck(String pid) {
+            lobby.onJoinAck(pid);
+            controller.onJoinAck(pid);
         }
-        @Override public void onLobbyUpdate(com.mykogroup.riskclone.network.payload.LobbyUpdatePayload p) {
-            lobby.onLobbyUpdate(p); controller.onLobbyUpdate(p);
+
+        @Override
+        public void onLobbyUpdate(com.mykogroup.riskclone.network.payload.LobbyUpdatePayload p) {
+            lobby.onLobbyUpdate(p);
+            controller.onLobbyUpdate(p);
         }
-        @Override public void onGameStart(com.mykogroup.riskclone.network.payload.GameStartPayload p) {
-            lobby.onGameStart(p); controller.onGameStart(p);
+
+        @Override
+        public void onGameStart(com.mykogroup.riskclone.network.payload.GameStartPayload p) {
+            lobby.onGameStart(p);
+            controller.onGameStart(p);
         }
-        @Override public void onStateUpdate(com.mykogroup.riskclone.network.payload.StateUpdatePayload p) {
-            lobby.onStateUpdate(p); controller.onStateUpdate(p);
+
+        @Override
+        public void onStateUpdate(com.mykogroup.riskclone.network.payload.StateUpdatePayload p) {
+            lobby.onStateUpdate(p);
+            controller.onStateUpdate(p);
         }
-        @Override public void onGameOver(com.mykogroup.riskclone.network.payload.GameOverPayload p) {
-            lobby.onGameOver(p); controller.onGameOver(p);
+
+        @Override
+        public void onGameOver(com.mykogroup.riskclone.network.payload.GameOverPayload p) {
+            lobby.onGameOver(p);
+            controller.onGameOver(p);
         }
-        @Override public void onPlayerDisconnected(String pid) {
-            lobby.onPlayerDisconnected(pid); controller.onPlayerDisconnected(pid);
+
+        @Override
+        public void onPlayerDisconnected(String pid) {
+            lobby.onPlayerDisconnected(pid);
+            controller.onPlayerDisconnected(pid);
         }
-        @Override public void onError(String m) { lobby.onError(m); controller.onError(m); }
-        @Override public void onDisconnected() { lobby.onDisconnected(); controller.onDisconnected(); }
-        @Override public void onTimerUpdate(String phase, int secondsRemaining) {
+
+        @Override
+        public void onError(String m) {
+            lobby.onError(m);
+            controller.onError(m);
+        }
+
+        @Override
+        public void onDisconnected() {
+            lobby.onDisconnected();
+            controller.onDisconnected();
+        }
+
+        @Override
+        public void onTimerUpdate(String phase, int secondsRemaining) {
             lobby.onTimerUpdate(phase, secondsRemaining);
             controller.onTimerUpdate(phase, secondsRemaining);
         }
     }
 
     private void launchNetworkGameView(GameState masterState, InteractiveMapPane gameBoard) {
-        if (networkController == null) return; // session torn down before game started
+        if (networkController == null)
+            return; // session torn down before game started
         StackPane gameRoot = new StackPane();
         gameRoot.setStyle("-fx-background-color: #0a1628;");
         gameRoot.getChildren().add(gameBoard);
@@ -912,7 +1035,8 @@ public class Main extends Application {
         playerLbl.setTextFill(Color.WHITE);
         playerLbl.setStyle("-fx-background-color: rgba(0,0,0,0.5); -fx-padding: 5px; -fx-background-radius: 5px;");
         StackPane.setAlignment(playerLbl, Pos.TOP_LEFT);
-        playerLbl.setTranslateY(20); playerLbl.setTranslateX(20);
+        playerLbl.setTranslateY(20);
+        playerLbl.setTranslateX(20);
 
         Label draftLbl = new Label();
         draftLbl.setFont(Font.font("System", FontWeight.BOLD, 16));
@@ -920,12 +1044,15 @@ public class Main extends Application {
         draftLbl.setStyle("-fx-background-color: rgba(0,0,0,0.8); -fx-padding: 5px; -fx-background-radius: 5px;");
         draftLbl.setVisible(false);
         StackPane.setAlignment(draftLbl, Pos.TOP_LEFT);
-        draftLbl.setTranslateY(55); draftLbl.setTranslateX(20);
+        draftLbl.setTranslateY(55);
+        draftLbl.setTranslateX(20);
 
         Button finishedBtn = new Button("Finished Turn");
-        finishedBtn.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-background-color: #f59e0b; -fx-text-fill: white;");
+        finishedBtn.setStyle(
+                "-fx-font-size: 16px; -fx-font-weight: bold; -fx-background-color: #f59e0b; -fx-text-fill: white;");
         StackPane.setAlignment(finishedBtn, Pos.TOP_RIGHT);
-        finishedBtn.setTranslateY(20); finishedBtn.setTranslateX(-20);
+        finishedBtn.setTranslateY(20);
+        finishedBtn.setTranslateX(-20);
 
         gameRoot.getChildren().addAll(timerLbl, playerLbl, draftLbl, finishedBtn);
         mainScene.setRoot(gameRoot);
