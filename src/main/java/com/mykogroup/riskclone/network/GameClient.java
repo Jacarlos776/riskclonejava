@@ -86,6 +86,11 @@ public class GameClient {
                     StateUpdatePayload p = mapper.treeToValue(msg.payload, StateUpdatePayload.class);
                     listener.onStateUpdate(p);
                 }
+                case MessageType.RESOLUTION_PLAYBACK -> {
+                    ResolutionPlaybackPayload p =
+                            mapper.treeToValue(msg.payload, ResolutionPlaybackPayload.class);
+                    listener.onResolutionPlayback(p);
+                }
                 case MessageType.GAME_OVER -> {
                     GameOverPayload p = mapper.treeToValue(msg.payload, GameOverPayload.class);
                     listener.onGameOver(p);

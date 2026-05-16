@@ -147,11 +147,33 @@ public class NetworkGameController implements GameClientListener {
         });
     }
 
+    @Override
+    public void onResolutionPlayback(ResolutionPlaybackPayload payload) {
+        this.lastReceivedState = payload.finalState;
+        Platform.runLater(() -> {
+            if (gameBoard == null) return;
+            gameBoard.setCurrentLocalPlayerId(localPlayerId);
+            gameBoard.setGameState(payload.finalState);
+            gameBoard.setInteractionLocked(true);
+            if (timerLabel != null) {
+                timerLabel.setText("RESOLUTION PHASE");
+                timerLabel.setTextFill(javafx.scene.paint.Color.GOLD);
+            }
+            ResolutionAnimator.play(gameBoard, draftCountLabel,
+                    payload.results, payload.preOwners, payload.preArmies, payload.queuedMoves,
+                    () -> gameBoard.renderState(payload.finalState));
+        });
+    }
+
     private void refreshUI(GameState state, String phase) {
         if (gameBoard != null) {
             gameBoard.setCurrentLocalPlayerId(localPlayerId);
             gameBoard.setGameState(state);
-            gameBoard.renderState(state);
+            // The animator owns the board during RESOLUTION; the intervening
+            // STATE_UPDATE for RESOLUTION only needs to flip the phase label.
+            if (!"RESOLUTION".equals(phase)) {
+                gameBoard.renderState(state);
+            }
         }
 
         // Reset the toggle when the phase actually changes; intra-phase

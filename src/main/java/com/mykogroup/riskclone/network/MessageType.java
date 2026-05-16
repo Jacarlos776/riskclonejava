@@ -19,6 +19,7 @@ public final class MessageType {
     public static final String LOBBY_UPDATE          = "LOBBY_UPDATE";
     public static final String GAME_START            = "GAME_START";
     public static final String STATE_UPDATE          = "STATE_UPDATE";
+    public static final String RESOLUTION_PLAYBACK   = "RESOLUTION_PLAYBACK";
     public static final String GAME_OVER             = "GAME_OVER";
     public static final String PLAYER_DISCONNECTED   = "PLAYER_DISCONNECTED";
     public static final String TIMER_UPDATE          = "TIMER_UPDATE";

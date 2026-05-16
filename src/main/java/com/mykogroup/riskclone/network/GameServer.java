@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mykogroup.riskclone.engine.AdjacencyService;
 import com.mykogroup.riskclone.engine.AiController;
 import com.mykogroup.riskclone.engine.RegionLoader;
+import com.mykogroup.riskclone.engine.ResolutionAnimator;
 import com.mykogroup.riskclone.engine.ResolutionEngine;
+import com.mykogroup.riskclone.engine.ResolutionResult;
 import com.mykogroup.riskclone.model.*;
 import com.mykogroup.riskclone.network.payload.*;
 
@@ -321,25 +323,49 @@ public class GameServer {
                 runAiTurnsIfNeeded();
             }
             case PLANNING -> {
+                // Snapshot pre-resolution state so clients can animate forward from it.
+                Map<String, String> preOwners = new HashMap<>();
+                Map<String, Integer> preArmies = new HashMap<>();
+                for (Province p : gameState.getProvinces()) {
+                    preOwners.put(p.getId(), p.getOwnerId());
+                    preArmies.put(p.getId(), p.getArmyCount());
+                }
+                List<Move> preMoves = new ArrayList<>(gameState.getQueuedMoves());
+
                 gameState.setCurrentPhase(GameState.GamePhase.RESOLUTION);
                 broadcastStateUpdate();
-                resolutionEngine.processTurn(gameState);
 
-                List<Player> survivors = gameState.getAlivePlayers();
-                if (survivors.size() <= 1) {
-                    String winnerId = survivors.isEmpty() ? null : survivors.get(0).getId();
-                    broadcast(build(MessageType.GAME_OVER, null, new GameOverPayload(winnerId)));
-                } else {
-                    gameState.setCurrentPhase(GameState.GamePhase.DRAFTING);
-                    gameState.initDraftPools(5);
-                    gameState.resetReadyStates();
-                    broadcastStateUpdate();
-                    startPhaseTimer(PHASE_SECONDS);
-                    runAiTurnsIfNeeded();
-                }
+                List<ResolutionResult> results = resolutionEngine.processTurn(gameState);
+
+                int animMs = ResolutionAnimator.estimateDurationMs(results.size());
+                broadcast(build(MessageType.RESOLUTION_PLAYBACK, null,
+                        new ResolutionPlaybackPayload(
+                                gameState, results, preOwners, preArmies, preMoves, animMs)));
+
+                // Defer the post-resolution transition so clients can finish their animation.
+                timerExecutor.schedule(this::finishResolution,
+                        animMs + 200L, TimeUnit.MILLISECONDS);
             }
             default -> {}
         }
+    }
+
+    private synchronized void finishResolution() {
+        if (gameState == null) return;
+        if (gameState.getCurrentPhase() != GameState.GamePhase.RESOLUTION) return;
+
+        List<Player> survivors = gameState.getAlivePlayers();
+        if (survivors.size() <= 1) {
+            String winnerId = survivors.isEmpty() ? null : survivors.get(0).getId();
+            broadcast(build(MessageType.GAME_OVER, null, new GameOverPayload(winnerId)));
+            return;
+        }
+        gameState.setCurrentPhase(GameState.GamePhase.DRAFTING);
+        gameState.initDraftPools(5);
+        gameState.resetReadyStates();
+        broadcastStateUpdate();
+        startPhaseTimer(PHASE_SECONDS);
+        runAiTurnsIfNeeded();
     }
 
     // --- AI ---

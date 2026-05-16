@@ -4,6 +4,7 @@ import com.mykogroup.riskclone.engine.AdjacencyEditor;
 import com.mykogroup.riskclone.engine.AdjacencyService;
 import com.mykogroup.riskclone.engine.AiController;
 import com.mykogroup.riskclone.engine.RegionLoader;
+import com.mykogroup.riskclone.engine.ResolutionAnimator;
 import com.mykogroup.riskclone.engine.ResolutionEngine;
 import com.mykogroup.riskclone.engine.ResolutionResult;
 import com.mykogroup.riskclone.model.GameState;
@@ -618,40 +619,13 @@ public class Main extends Application {
         }
         List<Move> preMoves = new ArrayList<>(masterState.getQueuedMoves());
 
-        // Save the user's current camera so we can restore it after resolution.
-        double preCamScale = gameBoard.getScaleX();
-        double preCamTX = gameBoard.getTranslateX();
-        double preCamTY = gameBoard.getTranslateY();
-
         List<ResolutionResult> results = new ResolutionEngine().processTurn(masterState);
 
-        // Roll the board back to pre-resolution visuals. Planning arrows stay on screen.
-        gameBoard.renderSnapshotState(preOwners, preArmies, masterState);
-
-        // Animate all source-province departures first so the arrows look like they actually marched off.
-        Map<String, Integer> totalDepartures = new HashMap<>();
-        for (Move m : preMoves) {
-            totalDepartures.merge(m.fromId(), m.armies(), Integer::sum);
-        }
-        for (var entry : totalDepartures.entrySet()) {
-            int oldC = preArmies.get(entry.getKey());
-            int newC = oldC - entry.getValue();
-            preArmies.put(entry.getKey(), newC);
-            gameBoard.tweenArmyCount(entry.getKey(), oldC, newC, Duration.millis(400));
-        }
-
-        PauseTransition departurePause = new PauseTransition(Duration.millis(500));
-        departurePause.setOnFinished(e -> animateResolution(results, preOwners, preArmies, preMoves, () -> {
-            gameBoard.clearArrows();
-            gameBoard.animateCameraTo(preCamScale, preCamTX, preCamTY, Duration.millis(500));
-            PauseTransition restorePause = new PauseTransition(Duration.millis(520));
-            restorePause.setOnFinished(ev -> {
-                gameBoard.renderState(masterState);
-                checkVictory();
-            });
-            restorePause.play();
-        }));
-        departurePause.play();
+        ResolutionAnimator.play(gameBoard, draftCountLabel, results,
+                preOwners, preArmies, preMoves, () -> {
+            gameBoard.renderState(masterState);
+            checkVictory();
+        });
     }
 
     private void checkVictory() {
@@ -665,51 +639,6 @@ public class Main extends Application {
                 startDraftingPhase();
             })).play();
         }
-    }
-
-    private void animateResolution(List<ResolutionResult> results,
-                                   Map<String, String> preOwners,
-                                   Map<String, Integer> preArmies,
-                                   List<Move> preMoves,
-                                   Runnable onComplete) {
-        if (results.isEmpty()) {
-            onComplete.run();
-            return;
-        }
-
-        // Sort results by player ID of the first involved player (to satisfy "ordered by player")
-        results.sort(Comparator.comparing(r -> r.involvedPlayerIds().isEmpty() ? "" : r.involvedPlayerIds().get(0)));
-
-        ResolutionResult res = results.remove(0);
-        String destId = res.provinceId();
-
-        List<String> inboundSources = new ArrayList<>();
-        for (Move m : preMoves) {
-            if (m.toId().equals(destId)) inboundSources.add(m.fromId());
-        }
-
-        gameBoard.zoomToProvince(destId, 2.5, Duration.millis(350));
-        gameBoard.pulseArrows(inboundSources, destId, Duration.millis(400));
-        gameBoard.flashProvince(destId, Color.YELLOW, Duration.millis(500));
-
-        String oldOwner = preOwners.get(destId);
-        String newOwner = res.ownerId();
-        if (!Objects.equals(oldOwner, newOwner)) {
-            gameBoard.setProvinceOwnerColor(destId, newOwner);
-            preOwners.put(destId, newOwner);
-        }
-
-        int oldCount = preArmies.getOrDefault(destId, 0);
-        preArmies.put(destId, res.armyCount());
-        gameBoard.tweenArmyCount(destId, oldCount, res.armyCount(), Duration.millis(500));
-
-        draftCountLabel.setVisible(true);
-        draftCountLabel.setText(res.description());
-        draftCountLabel.setTextFill(Color.CYAN);
-
-        PauseTransition pause = new PauseTransition(Duration.seconds(1.0));
-        pause.setOnFinished(e -> animateResolution(results, preOwners, preArmies, preMoves, onComplete));
-        pause.play();
     }
 
     private void triggerSimultaneousAI() {
@@ -1272,6 +1201,13 @@ public class Main extends Application {
         public void onTimerUpdate(String phase, int secondsRemaining) {
             lobby.onTimerUpdate(phase, secondsRemaining);
             controller.onTimerUpdate(phase, secondsRemaining);
+        }
+
+        @Override
+        public void onResolutionPlayback(
+                com.mykogroup.riskclone.network.payload.ResolutionPlaybackPayload p) {
+            lobby.onResolutionPlayback(p);
+            controller.onResolutionPlayback(p);
         }
     }
 
