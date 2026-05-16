@@ -172,14 +172,14 @@ public class NetworkLobbyPane extends StackPane implements GameClientListener {
 
     private void showDetailsModal() {
         detailsPrompted = true;
-        Stage modal = new Stage(StageStyle.TRANSPARENT);
-        modal.initModality(Modality.APPLICATION_MODAL);
+        final Main.Overlay[] overlayRef = new Main.Overlay[1];
 
         VBox root = new VBox(25);
         root.setPadding(new Insets(35));
         root.setStyle(
                 "-fx-background-color: #3d2b1f; -fx-border-color: #d4af37; -fx-border-width: 4; -fx-background-radius: 20; -fx-border-radius: 20;");
         root.setAlignment(Pos.CENTER);
+        root.setMaxSize(javafx.scene.layout.Region.USE_PREF_SIZE, javafx.scene.layout.Region.USE_PREF_SIZE);
 
         Label title = new Label("SINO KA?");
         if (Main.HEADER_FONT != null)
@@ -274,7 +274,7 @@ public class NetworkLobbyPane extends StackPane implements GameClientListener {
             sendAsync(build(MessageType.UPDATE_COLOR, new UpdateColorPayload(selectedColor[0])));
             sendAsync(build(MessageType.UPDATE_AVATAR, new UpdateAvatarPayload(selectedAvatar[0])));
 
-            modal.close();
+            overlayRef[0].close();
         });
         Main.addHoverEffect(okBtn);
 
@@ -282,7 +282,7 @@ public class NetworkLobbyPane extends StackPane implements GameClientListener {
         cancelBtn.setStyle(Main.primaryBtnStyle(200, 55));
         cancelBtn.setFont(Main.headerFont(22));
         cancelBtn.setOnAction(e -> {
-            modal.close();
+            overlayRef[0].close();
             if (client != null)
                 client.disconnect();
             onLeave.run();
@@ -293,8 +293,8 @@ public class NetworkLobbyPane extends StackPane implements GameClientListener {
         actions.setAlignment(Pos.CENTER);
 
         root.getChildren().addAll(title, nameField, errorLabel, avatarLabel, avatarBox, colorLabel, colorBox, actions);
-        modal.setScene(new Scene(root, Color.TRANSPARENT));
-        modal.showAndWait();
+
+        overlayRef[0] = Main.showOverlay(root);
     }
 
     @Override

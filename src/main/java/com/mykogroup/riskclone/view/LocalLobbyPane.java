@@ -173,8 +173,7 @@ public class LocalLobbyPane extends StackPane {
         if (players.size() >= 8)
             return;
 
-        Stage modal = new Stage(StageStyle.TRANSPARENT);
-        modal.initModality(Modality.APPLICATION_MODAL);
+        final Main.Overlay[] overlayRef = new Main.Overlay[1];
 
         VBox root = new VBox(25);
         root.setPadding(new Insets(35));
@@ -185,6 +184,7 @@ public class LocalLobbyPane extends StackPane {
                 "-fx-border-radius: 20; " +
                 "-fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.8), 20, 0, 0, 0);");
         root.setAlignment(Pos.CENTER);
+        root.setMaxSize(javafx.scene.layout.Region.USE_PREF_SIZE, javafx.scene.layout.Region.USE_PREF_SIZE);
 
         Label title = new Label("MAGDAGDAG NG MANLALARO");
         if (Main.HEADER_FONT != null)
@@ -281,7 +281,7 @@ public class LocalLobbyPane extends StackPane {
                 return;
             }
             players.add(new LobbyPlayer("player-" + System.currentTimeMillis(), name, selectedColor[0], isAi, selectedAvatar[0]));
-            modal.close();
+            overlayRef[0].close();
             refreshGrid();
         });
         Main.addHoverEffect(addBtn);
@@ -289,7 +289,7 @@ public class LocalLobbyPane extends StackPane {
         Button cancelBtn = new Button("KANSELAHIN");
         cancelBtn.setStyle(Main.primaryBtnStyle(200, 55));
         cancelBtn.setFont(Main.headerFont(22));
-        cancelBtn.setOnAction(e -> modal.close());
+        cancelBtn.setOnAction(e -> overlayRef[0].close());
         Main.addHoverEffect(cancelBtn);
 
         HBox actions = new HBox(20, cancelBtn, addBtn);
@@ -297,10 +297,7 @@ public class LocalLobbyPane extends StackPane {
 
         root.getChildren().addAll(title, nameField, errorLabel, avatarLabel, avatarBox, colorLabel, colorBox, actions);
 
-        Scene scene = new Scene(root);
-        scene.setFill(Color.TRANSPARENT);
-        modal.setScene(scene);
-        modal.showAndWait();
+        overlayRef[0] = Main.showOverlay(root);
     }
 
     private Button createIconButton(String path, double w, double h) {

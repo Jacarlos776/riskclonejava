@@ -77,9 +77,48 @@ public class Main extends Application {
         return Font.font(HEADER_FONT.getFamily(), size);
     }
 
+    /** Handle to a live in-scene overlay. Call {@link #close()} to dismiss. */
+    public static final class Overlay {
+        private final StackPane host;
+        private final Pane scrim;
+        private final Node content;
+        private boolean closed = false;
+        Overlay(StackPane host, Pane scrim, Node content) {
+            this.host = host; this.scrim = scrim; this.content = content;
+        }
+        public void close() {
+            if (closed) return;
+            closed = true;
+            host.getChildren().removeAll(scrim, content);
+        }
+    }
+
+    /**
+     * Show a node centered over the current scene root, behind a click-blocking scrim.
+     * Lighter than spinning up a transparent modal Stage. If the current root isn't a
+     * StackPane, it gets wrapped in one (one-time op).
+     */
+    public static Overlay showOverlay(Node content) {
+        Parent root = mainSceneStatic.getRoot();
+        StackPane host;
+        if (root instanceof StackPane sp) {
+            host = sp;
+        } else {
+            host = new StackPane(root);
+            mainSceneStatic.setRoot(host);
+        }
+        Pane scrim = new Pane();
+        scrim.setStyle("-fx-background-color: rgba(0,0,0,0.55);");
+        scrim.setOnMouseClicked(javafx.event.Event::consume);
+        StackPane.setAlignment(content, Pos.CENTER);
+        host.getChildren().addAll(scrim, content);
+        return new Overlay(host, scrim, content);
+    }
+
     // --- Class Variables for Game Loop ---
     private AiController aiController;
     private Scene mainScene; // Tracks the main window scene
+    private static Scene mainSceneStatic; // Static handle so overlay helpers can reach the scene
     private Label timerLabel;
     private Label playerTurnLabel;
     private Label draftCountLabel; // Shows "Armies left: 5"
@@ -116,6 +155,7 @@ public class Main extends Application {
         loadDesignTokens();
 
         mainScene = new Scene(new Pane(), 1280, 720);
+        mainSceneStatic = mainScene;
         stage.setTitle("RISK: Philippines");
         stage.setScene(mainScene);
 
@@ -984,13 +1024,11 @@ public class Main extends Application {
     }
 
     private void showJoinDialog() {
-        Stage modal = new Stage(StageStyle.TRANSPARENT);
-        modal.initModality(Modality.APPLICATION_MODAL);
-        
-        VBox root = new VBox(25);
-        root.setPadding(new Insets(40));
-        root.setStyle("-fx-background-color: #3d2b1f; -fx-border-color: #d4af37; -fx-border-width: 4; -fx-background-radius: 20; -fx-border-radius: 20;");
-        root.setAlignment(Pos.CENTER);
+        VBox card = new VBox(25);
+        card.setPadding(new Insets(40));
+        card.setStyle("-fx-background-color: #3d2b1f; -fx-border-color: #d4af37; -fx-border-width: 4; -fx-background-radius: 20; -fx-border-radius: 20;");
+        card.setAlignment(Pos.CENTER);
+        card.setMaxSize(javafx.scene.layout.Region.USE_PREF_SIZE, javafx.scene.layout.Region.USE_PREF_SIZE);
 
         Label title = new Label("SALI SA LARO");
         if (HEADER_FONT != null) title.setFont(HEADER_FONT);
@@ -1009,41 +1047,36 @@ public class Main extends Application {
         Button joinBtn = new Button("SALI");
         joinBtn.setStyle(primaryBtnStyle(200, 55));
         joinBtn.setFont(headerFont(22));
-        
+
+        Button cancelBtn = new Button("KANSELAHIN");
+        cancelBtn.setStyle(primaryBtnStyle(200, 55));
+        cancelBtn.setFont(headerFont(22));
+
+        HBox actions = new HBox(20, cancelBtn, joinBtn);
+        actions.setAlignment(Pos.CENTER);
+
+        card.getChildren().addAll(title, codeField, errorLabel, actions);
+
+        Overlay overlay = showOverlay(card);
+
         joinBtn.setOnAction(e -> {
             String code = codeField.getText().trim().toUpperCase();
             if (code.length() != 6) {
                 errorLabel.setText("Maling koda! Dapat ay 6 na karakter.");
                 return;
             }
-
             try {
                 com.mykogroup.riskclone.network.LobbyCodeConverter.Address addr = com.mykogroup.riskclone.network.LobbyCodeConverter.decode(code);
                 errorLabel.setText("Kumokonekta...");
-                startJoinSession(addr.ip, addr.port, "Player", errorLabel, () -> {
-                    modal.close();
-                });
+                startJoinSession(addr.ip, addr.port, "Player", errorLabel, overlay::close);
             } catch (Exception ex) {
                 errorLabel.setText("Maling code!");
             }
         });
         addHoverEffect(joinBtn);
 
-        Button cancelBtn = new Button("KANSELAHIN");
-        cancelBtn.setStyle(primaryBtnStyle(200, 55));
-        cancelBtn.setFont(headerFont(22));
-        cancelBtn.setOnAction(e -> {
-            modal.close();
-            resetGameToMenu();
-        });
+        cancelBtn.setOnAction(e -> overlay.close());
         addHoverEffect(cancelBtn);
-
-        HBox actions = new HBox(20, cancelBtn, joinBtn);
-        actions.setAlignment(Pos.CENTER);
-
-        root.getChildren().addAll(title, codeField, errorLabel, actions);
-        modal.setScene(new Scene(root, Color.TRANSPARENT));
-        modal.showAndWait();
     }
 
     private void startJoinSession(String host, int port, String playerName,
