@@ -283,9 +283,7 @@ public class NetworkLobbyPane extends StackPane implements GameClientListener {
         cancelBtn.setFont(Main.headerFont(22));
         cancelBtn.setOnAction(e -> {
             overlayRef[0].close();
-            if (client != null)
-                client.disconnect();
-            onLeave.run();
+            onLeave.run(); // tearDownNetwork (inside onLeave) closes the client on a bg thread
         });
         Main.addHoverEffect(cancelBtn);
 

@@ -56,6 +56,7 @@ public class Main extends Application {
     public static Font BODY_FONT;
     public static String PRIMARY_BTN_STYLE;
     private static String BTN_IMG_PATH;
+    private static javafx.scene.image.Image MENU_BG_GIF; // cached so we don't re-decode on every visit
 
     /** Same precolonial image button as PRIMARY_BTN_STYLE, but at a custom size. */
     public static String primaryBtnStyle(double width, double height) {
@@ -214,6 +215,9 @@ public class Main extends Application {
                     "-fx-alignment: center; " +
                     "-fx-padding: 0 0 6 0; " + // Slight bottom nudge to compensate for font baseline
                     "-fx-cursor: hand;";
+
+            MENU_BG_GIF = new javafx.scene.image.Image(
+                    getClass().getResourceAsStream("/com/mykogroup/riskclone/assets/main-menu-bg.gif"));
         } catch (Exception e) {
             System.err.println("Error loading design tokens: " + e.getMessage());
             // Fallback
@@ -279,24 +283,33 @@ public class Main extends Application {
 
     // --- Network Cleanup ---
     private void tearDownNetwork() {
-        if (gameClient != null) {
-            gameClient.disconnect();
-            gameClient = null;
-        }
-        if (gameServer != null) {
-            gameServer.stop();
-            gameServer = null;
-        }
+        // Capture refs and null them immediately so no other code reuses them
+        var client = gameClient;
+        var server = gameServer;
+        gameClient = null;
+        gameServer = null;
         networkController = null;
+
+        // Close sockets on a background thread — both disconnect() and stop() block briefly
+        if (client != null || server != null) {
+            new Thread(() -> {
+                if (client != null) client.disconnect();
+                if (server != null) server.stop();
+            }, "network-teardown").start();
+        }
     }
 
-    // Completely builds a fresh board and state, destroying the old one
+    // Lightweight: network teardown + back to menu, no map rebuild (use when game never started)
+    private void returnToMainMenu() {
+        tearDownNetwork();
+        if (phaseTimer != null) phaseTimer.stop();
+        showMainMenu();
+    }
+
+    // Heavy: full rebuild after a played game (masterState is dirty)
     private void resetGameToMenu() {
         tearDownNetwork();
-        if (phaseTimer != null) {
-            phaseTimer.stop();
-        }
-
+        if (phaseTimer != null) phaseTimer.stop();
         initializeGame();
         showMainMenu();
     }
@@ -329,9 +342,7 @@ public class Main extends Application {
 
         // GIF Background
         try {
-            javafx.scene.image.Image bgGif = new javafx.scene.image.Image(
-                    getClass().getResourceAsStream("/com/mykogroup/riskclone/assets/main-menu-bg.gif"));
-            javafx.scene.image.ImageView bgView = new javafx.scene.image.ImageView(bgGif);
+            javafx.scene.image.ImageView bgView = new javafx.scene.image.ImageView(MENU_BG_GIF);
             bgView.setFitWidth(1280);
             bgView.setFitHeight(720);
             root.getChildren().add(bgView);
@@ -384,7 +395,7 @@ public class Main extends Application {
         List<Region> regions = RegionLoader.loadRegions("/com/mykogroup/riskclone/region.json");
         AdjacencyEditor editor = new AdjacencyEditor(new HashMap<>(svc.getAdjacencyMap()), regions);
 
-        MapEditorScene editorScene = new MapEditorScene(svgNodes, displayNames, editor, this::resetGameToMenu);
+        MapEditorScene editorScene = new MapEditorScene(svgNodes, displayNames, editor, this::returnToMainMenu);
         mainScene.setRoot(editorScene.getRoot());
     }
 
@@ -407,7 +418,7 @@ public class Main extends Application {
                     }
                     showLoadingScreen(this::launchGameView);
                 },
-                this::resetGameToMenu
+                this::returnToMainMenu
         );
 
         mainScene.setRoot(lobbyPane);
@@ -959,68 +970,69 @@ public class Main extends Application {
     private void startHostSession() {
         if (gameClient != null)
             return; // already connecting
-        try {
-            gameServer = new com.mykogroup.riskclone.network.GameServer(5050);
-            gameServer.start();
-            int port = gameServer.getPort();
 
-            // Discover LAN IP
-            String ip;
+        // Server startup + DNS lookup both can block — keep off FX thread
+        new Thread(() -> {
             try {
-                ip = java.net.InetAddress.getLocalHost().getHostAddress();
-            } catch (Exception ex) {
-                ip = "127.0.0.1";
-            }
+                com.mykogroup.riskclone.network.GameServer server =
+                        new com.mykogroup.riskclone.network.GameServer(5050);
+                server.start();
+                int port = server.getPort();
 
-            // Build controller and lobby BEFORE GameClient (setClient() breaks the circular
-            // dep)
-            networkController = new com.mykogroup.riskclone.engine.NetworkGameController();
-            final String finalIp = ip;
-            com.mykogroup.riskclone.view.NetworkLobbyPane lobbyPane = new com.mykogroup.riskclone.view.NetworkLobbyPane(
-                    true, finalIp, port,
-                    () -> showLoadingScreen(this::launchNetworkGameView),
-                    this::resetGameToMenu);
-
-            gameClient = new com.mykogroup.riskclone.network.GameClient(
-                    new CompositeListener(lobbyPane, networkController));
-            lobbyPane.setClient(gameClient);
-            networkController.setClient(gameClient);
-
-            mainScene.setRoot(lobbyPane);
-
-            // Connect and send JOIN on a background thread so the FX thread stays
-            // responsive
-            final int finalPort = port;
-            long startTime = System.currentTimeMillis();
-            new Thread(() -> {
+                String ip;
                 try {
-                    gameClient.connect("localhost", finalPort);
-                    gameClient.send(new com.mykogroup.riskclone.network.NetworkMessage(
-                            com.mykogroup.riskclone.network.MessageType.JOIN, null,
-                            mapper.valueToTree(
-                                    new com.mykogroup.riskclone.network.payload.JoinPayload(
-                                            "Host", DEFAULT_COLORS[0]))));
+                    ip = java.net.InetAddress.getLocalHost().getHostAddress();
                 } catch (Exception ex) {
-                    // Ensure feedback period
-                    long elapsed = System.currentTimeMillis() - startTime;
-                    if (elapsed < 5000) {
-                        try { Thread.sleep(5000 - elapsed); } catch (InterruptedException ignored) {}
-                    }
-                    javafx.application.Platform.runLater(() -> {
-                        // If there was a status label or similar for host, we'd update it. 
-                        // For now we just reset after the delay.
-                    });
-                    try { Thread.sleep(1000); } catch (InterruptedException ignored) {}
-                    javafx.application.Platform.runLater(this::resetGameToMenu);
-                    ex.printStackTrace();
+                    ip = "127.0.0.1";
                 }
-            }, "host-connect").start();
+                final String finalIp = ip;
+                final int finalPort = port;
 
-        } catch (Exception ex) {
-            tearDownNetwork();
-            javafx.application.Platform.runLater(this::showMainMenu);
-            ex.printStackTrace();
-        }
+                javafx.application.Platform.runLater(() -> {
+                    gameServer = server;
+                    networkController = new com.mykogroup.riskclone.engine.NetworkGameController();
+                    com.mykogroup.riskclone.view.NetworkLobbyPane lobbyPane =
+                            new com.mykogroup.riskclone.view.NetworkLobbyPane(
+                                    true, finalIp, finalPort,
+                                    () -> showLoadingScreen(this::launchNetworkGameView),
+                                    this::returnToMainMenu);
+
+                    gameClient = new com.mykogroup.riskclone.network.GameClient(
+                            new CompositeListener(lobbyPane, networkController));
+                    lobbyPane.setClient(gameClient);
+                    networkController.setClient(gameClient);
+                    mainScene.setRoot(lobbyPane);
+
+                    // Connect host client on a background thread
+                    long startTime = System.currentTimeMillis();
+                    new Thread(() -> {
+                        try {
+                            gameClient.connect("localhost", finalPort);
+                            gameClient.send(new com.mykogroup.riskclone.network.NetworkMessage(
+                                    com.mykogroup.riskclone.network.MessageType.JOIN, null,
+                                    mapper.valueToTree(
+                                            new com.mykogroup.riskclone.network.payload.JoinPayload(
+                                                    "Host", DEFAULT_COLORS[0]))));
+                        } catch (Exception ex) {
+                            long elapsed = System.currentTimeMillis() - startTime;
+                            if (elapsed < 5000) {
+                                try { Thread.sleep(5000 - elapsed); } catch (InterruptedException ignored) {}
+                            }
+                            try { Thread.sleep(1000); } catch (InterruptedException ignored) {}
+                            javafx.application.Platform.runLater(this::returnToMainMenu);
+                            ex.printStackTrace();
+                        }
+                    }, "host-connect").start();
+                });
+
+            } catch (Exception ex) {
+                javafx.application.Platform.runLater(() -> {
+                    tearDownNetwork();
+                    showMainMenu();
+                });
+                ex.printStackTrace();
+            }
+        }, "host-setup").start();
     }
 
     private void showJoinDialog() {
@@ -1125,11 +1137,10 @@ public class Main extends Application {
                 try { Thread.sleep(1000); } catch (InterruptedException ignored) {}
 
                 javafx.application.Platform.runLater(() -> {
-                    tearDownNetwork();
                     if (statusLabel != null && statusLabel.getScene() != null && statusLabel.getScene().getWindow() != null) {
                         ((javafx.stage.Stage)statusLabel.getScene().getWindow()).close();
                     }
-                    resetGameToMenu(); // Go back to main menu
+                    returnToMainMenu(); // Go back to main menu (tearDownNetwork is inside returnToMainMenu)
                     System.err.println("Connection failed after 5s feedback + 1s error, returning to menu.");
                 });
             }
