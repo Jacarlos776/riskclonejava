@@ -4,12 +4,19 @@ import com.mykogroup.riskclone.engine.AdjacencyService;
 import com.mykogroup.riskclone.model.GameState;
 import com.mykogroup.riskclone.model.Move;
 import com.mykogroup.riskclone.model.Province;
+import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
+import javafx.animation.Timeline;
+import javafx.beans.property.IntegerProperty;
+import javafx.beans.property.SimpleIntegerProperty;
 import javafx.geometry.Bounds;
+import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.scene.Group;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
+import javafx.scene.effect.DropShadow;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.input.ScrollEvent;
 import javafx.scene.layout.HBox;
@@ -22,9 +29,11 @@ import javafx.scene.shape.StrokeType;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
+import javafx.util.Duration;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -549,6 +558,171 @@ public class InteractiveMapPane extends Pane {
         popup.setLayoutX(targetBounds.getCenterX() - 150);
         popup.setLayoutY(targetBounds.getCenterY());
         uiLayer.getChildren().add(popup);
+    }
+
+    // ---------------------------------------------------------
+    // RESOLUTION-PHASE ANIMATION HELPERS
+    // ---------------------------------------------------------
+
+    public void renderSnapshotState(Map<String, String> snapshotOwners,
+                                    Map<String, Integer> snapshotArmies,
+                                    GameState state) {
+        if (!seaRoutesDrawn) {
+            drawSeaRoutes();
+            seaRoutesDrawn = true;
+        }
+        for (var node : provinceLayer.getChildren()) {
+            if (!(node instanceof SVGPath svgPath)) continue;
+            String provinceId = svgPath.getId();
+
+            String ownerId = snapshotOwners.get(provinceId);
+            int count = snapshotArmies.getOrDefault(provinceId, 0);
+
+            String newColor = ColorManager.getColorForPlayer(ownerId);
+            svgPath.getProperties().put("baseColor", newColor);
+            Object selObj = svgPath.getProperties().get("selected");
+            boolean isSelected = selObj instanceof Boolean b && b;
+            svgPath.setStyle(SvgMapLoader.generateStyle(newColor, isSelected, false));
+
+            Text label = armyLabels.get(provinceId);
+            if (label != null) {
+                if (count > 0) {
+                    label.setText(String.valueOf(count));
+                    Bounds textBounds = label.getLayoutBounds();
+                    Bounds pathBounds = svgPath.getBoundsInParent();
+                    label.setX(pathBounds.getCenterX() - (textBounds.getWidth() / 2));
+                    label.setY(pathBounds.getCenterY() + (textBounds.getHeight() / 4));
+                } else {
+                    label.setText("");
+                }
+            }
+        }
+    }
+
+    public void flashProvince(String provinceId, Color flashColor, Duration duration) {
+        SVGPath path = provinceNodeMap.get(provinceId);
+        if (path == null) return;
+
+        DropShadow glow = new DropShadow();
+        glow.setColor(flashColor);
+        glow.setSpread(0.55);
+        glow.setRadius(0);
+        path.setEffect(glow);
+
+        Timeline tl = new Timeline(
+            new KeyFrame(Duration.ZERO, new KeyValue(glow.radiusProperty(), 0)),
+            new KeyFrame(duration.divide(2), new KeyValue(glow.radiusProperty(), 35)),
+            new KeyFrame(duration, new KeyValue(glow.radiusProperty(), 0))
+        );
+        tl.setOnFinished(e -> path.setEffect(null));
+        tl.play();
+    }
+
+    public void tweenArmyCount(String provinceId, int from, int to, Duration duration) {
+        Text label = armyLabels.get(provinceId);
+        SVGPath svgPath = provinceNodeMap.get(provinceId);
+        if (label == null) return;
+
+        IntegerProperty value = new SimpleIntegerProperty(from);
+        value.addListener((obs, oldV, newV) -> {
+            int n = newV.intValue();
+            if (n > 0) {
+                label.setText(String.valueOf(n));
+                if (svgPath != null) {
+                    Bounds textBounds = label.getLayoutBounds();
+                    Bounds pathBounds = svgPath.getBoundsInParent();
+                    label.setX(pathBounds.getCenterX() - (textBounds.getWidth() / 2));
+                    label.setY(pathBounds.getCenterY() + (textBounds.getHeight() / 4));
+                }
+            } else {
+                label.setText("");
+            }
+        });
+
+        Timeline tl = new Timeline(
+            new KeyFrame(Duration.ZERO, new KeyValue(value, from)),
+            new KeyFrame(duration, new KeyValue(value, to))
+        );
+        tl.play();
+    }
+
+    public void setProvinceOwnerColor(String provinceId, String ownerId) {
+        SVGPath path = provinceNodeMap.get(provinceId);
+        if (path == null) return;
+        String newColor = ColorManager.getColorForPlayer(ownerId);
+        path.getProperties().put("baseColor", newColor);
+        Object selObj = path.getProperties().get("selected");
+        boolean isSelected = selObj instanceof Boolean b && b;
+        path.setStyle(SvgMapLoader.generateStyle(newColor, isSelected, false));
+    }
+
+    public void zoomToProvince(String provinceId, double targetScale, Duration duration) {
+        SVGPath path = provinceNodeMap.get(provinceId);
+        if (path == null || getScene() == null) return;
+
+        Bounds pBounds = path.getBoundsInParent();
+        double px = pBounds.getCenterX();
+        double py = pBounds.getCenterY();
+
+        double cx = getLayoutBounds().getWidth() / 2;
+        double cy = getLayoutBounds().getHeight() / 2;
+
+        Point2D paneOrigin = (getParent() != null)
+            ? getParent().localToScene(getLayoutX(), getLayoutY())
+            : new Point2D(0, 0);
+
+        double sceneCenterX = getScene().getWidth() / 2;
+        double sceneCenterY = getScene().getHeight() / 2;
+
+        // After scale (pivot = layout-bounds center) and translate,
+        // a local point (px, py) maps to scene coord:
+        //   paneOrigin + cx + (px - cx) * scale + translate
+        // Solve for translate so the point lands at the scene center.
+        double newTX = sceneCenterX - paneOrigin.getX() - cx - (px - cx) * targetScale;
+        double newTY = sceneCenterY - paneOrigin.getY() - cy - (py - cy) * targetScale;
+
+        Timeline tl = new Timeline(new KeyFrame(duration,
+            new KeyValue(scaleXProperty(), targetScale),
+            new KeyValue(scaleYProperty(), targetScale),
+            new KeyValue(translateXProperty(), newTX),
+            new KeyValue(translateYProperty(), newTY)
+        ));
+        tl.play();
+    }
+
+    public void animateCameraTo(double scale, double translateX, double translateY, Duration duration) {
+        Timeline tl = new Timeline(new KeyFrame(duration,
+            new KeyValue(scaleXProperty(), scale),
+            new KeyValue(scaleYProperty(), scale),
+            new KeyValue(translateXProperty(), translateX),
+            new KeyValue(translateYProperty(), translateY)
+        ));
+        tl.play();
+    }
+
+    public void pulseArrows(List<String> sourceIds, String destId, Duration duration) {
+        for (String sourceId : sourceIds) {
+            String key = sourceId + "-" + destId;
+            Line arrow = activeArrows.get(key);
+            if (arrow == null) continue;
+            arrow.setStroke(Color.YELLOW);
+            Timeline tl = new Timeline(
+                new KeyFrame(Duration.ZERO,
+                    new KeyValue(arrow.strokeWidthProperty(), 4),
+                    new KeyValue(arrow.opacityProperty(), 1.0)),
+                new KeyFrame(duration.divide(2),
+                    new KeyValue(arrow.strokeWidthProperty(), 9)),
+                new KeyFrame(duration,
+                    new KeyValue(arrow.strokeWidthProperty(), 4),
+                    new KeyValue(arrow.opacityProperty(), 0.0))
+            );
+            Line finalArrow = arrow;
+            tl.setOnFinished(e -> {
+                arrowLayer.getChildren().remove(finalArrow);
+                activeArrows.remove(key);
+            });
+            tl.play();
+        }
     }
 
     private static final String STEPPER_STYLE =
