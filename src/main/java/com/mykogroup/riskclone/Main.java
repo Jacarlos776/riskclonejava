@@ -55,6 +55,27 @@ public class Main extends Application {
     public static Font HEADER_FONT;
     public static Font BODY_FONT;
     public static String PRIMARY_BTN_STYLE;
+    private static String BTN_IMG_PATH;
+
+    /** Same precolonial image button as PRIMARY_BTN_STYLE, but at a custom size. */
+    public static String primaryBtnStyle(double width, double height) {
+        return "-fx-background-image: url('" + BTN_IMG_PATH + "'); " +
+                "-fx-background-size: 100% 100%; " +
+                "-fx-background-color: transparent; " +
+                "-fx-background-repeat: no-repeat; " +
+                "-fx-min-width: " + width + "px; -fx-min-height: " + height + "px; " +
+                "-fx-max-width: " + width + "px; -fx-max-height: " + height + "px; " +
+                "-fx-text-fill: white; " +
+                "-fx-alignment: center; " +
+                "-fx-padding: 0 0 6 0; " +
+                "-fx-cursor: hand;";
+    }
+
+    /** Tribo header font at a custom size (matches HEADER_FONT family). */
+    public static Font headerFont(double size) {
+        if (HEADER_FONT == null) return Font.font("System", FontWeight.BOLD, size);
+        return Font.font(HEADER_FONT.getFamily(), size);
+    }
 
     // --- Class Variables for Game Loop ---
     private AiController aiController;
@@ -110,22 +131,28 @@ public class Main extends Application {
 
     // Helper for themed hover effects
     public static void addHoverEffect(javafx.scene.control.ButtonBase btn) {
-        javafx.animation.ScaleTransition st = new javafx.animation.ScaleTransition(Duration.millis(150), btn);
-        st.setFromX(1.0);
-        st.setFromY(1.0);
-        st.setToX(1.1);
-        st.setToY(1.1);
-        
-        btn.setOnMouseEntered(e -> {
-            st.setRate(1);
-            st.play();
-            btn.setOpacity(0.9);
-        });
-        btn.setOnMouseExited(e -> {
-            st.setRate(-1);
-            st.play();
-            btn.setOpacity(1.0);
-        });
+        final String KEY = "hoverAnim";
+        btn.setOnMouseEntered(e -> playHoverScale(btn, KEY, 1.1, 0.9));
+        btn.setOnMouseExited(e -> playHoverScale(btn, KEY, 1.0, 1.0));
+    }
+
+    private static void playHoverScale(javafx.scene.control.ButtonBase btn,
+                                       String key, double targetScale, double targetOpacity) {
+        Object prev = btn.getProperties().get(key);
+        if (prev instanceof javafx.animation.Animation a) a.stop();
+
+        javafx.animation.Timeline tl = new javafx.animation.Timeline(
+            new javafx.animation.KeyFrame(Duration.millis(150),
+                new javafx.animation.KeyValue(btn.scaleXProperty(), targetScale,
+                    javafx.animation.Interpolator.EASE_OUT),
+                new javafx.animation.KeyValue(btn.scaleYProperty(), targetScale,
+                    javafx.animation.Interpolator.EASE_OUT),
+                new javafx.animation.KeyValue(btn.opacityProperty(), targetOpacity,
+                    javafx.animation.Interpolator.EASE_OUT)
+            )
+        );
+        btn.getProperties().put(key, tl);
+        tl.play();
     }
 
     private void loadDesignTokens() {
@@ -135,9 +162,9 @@ public class Main extends Application {
             BODY_FONT = Font.loadFont(
                     getClass().getResourceAsStream("/com/mykogroup/riskclone/assets/Nunito-VariableFont_wght.ttf"), 18);
 
-            String btnImgPath = getClass().getResource("/com/mykogroup/riskclone/assets/main-menu-btn.png")
+            BTN_IMG_PATH = getClass().getResource("/com/mykogroup/riskclone/assets/main-menu-btn.png")
                     .toExternalForm();
-            PRIMARY_BTN_STYLE = "-fx-background-image: url('" + btnImgPath + "'); " +
+            PRIMARY_BTN_STYLE = "-fx-background-image: url('" + BTN_IMG_PATH + "'); " +
                     "-fx-background-size: 100% 100%; " +
                     "-fx-background-color: transparent; " +
                     "-fx-background-repeat: no-repeat; " +
@@ -980,8 +1007,8 @@ public class Main extends Application {
         if (BODY_FONT != null) errorLabel.setFont(BODY_FONT);
 
         Button joinBtn = new Button("SALI");
-        joinBtn.setStyle("-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 40; -fx-background-radius: 5;");
-        if (BODY_FONT != null) joinBtn.setFont(BODY_FONT);
+        joinBtn.setStyle(primaryBtnStyle(200, 55));
+        joinBtn.setFont(headerFont(22));
         
         joinBtn.setOnAction(e -> {
             String code = codeField.getText().trim().toUpperCase();
@@ -1002,9 +1029,9 @@ public class Main extends Application {
         });
         addHoverEffect(joinBtn);
 
-        Button cancelBtn = new Button("I-cancel");
-        cancelBtn.setStyle("-fx-background-color: #ef4444; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 40; -fx-background-radius: 5;");
-        if (BODY_FONT != null) cancelBtn.setFont(BODY_FONT);
+        Button cancelBtn = new Button("KANSELAHIN");
+        cancelBtn.setStyle(primaryBtnStyle(200, 55));
+        cancelBtn.setFont(headerFont(22));
         cancelBtn.setOnAction(e -> {
             modal.close();
             resetGameToMenu();

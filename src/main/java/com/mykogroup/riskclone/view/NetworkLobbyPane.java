@@ -259,10 +259,8 @@ public class NetworkLobbyPane extends StackPane implements GameClientListener {
         errorLabel.setFont(Font.font(14));
 
         Button okBtn = new Button("HANDA NA");
-        okBtn.setStyle(
-                "-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 40; -fx-background-radius: 5;");
-        if (Main.BODY_FONT != null)
-            okBtn.setFont(Main.BODY_FONT);
+        okBtn.setStyle(Main.primaryBtnStyle(200, 55));
+        okBtn.setFont(Main.headerFont(22));
         okBtn.setOnAction(e -> {
             String name = nameField.getText().trim();
             if (name.isEmpty()) {
@@ -280,11 +278,9 @@ public class NetworkLobbyPane extends StackPane implements GameClientListener {
         });
         Main.addHoverEffect(okBtn);
 
-        Button cancelBtn = new Button("I-cancel");
-        cancelBtn.setStyle(
-                "-fx-background-color: #ef4444; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 40; -fx-background-radius: 5;");
-        if (Main.BODY_FONT != null)
-            cancelBtn.setFont(Main.BODY_FONT);
+        Button cancelBtn = new Button("KANSELAHIN");
+        cancelBtn.setStyle(Main.primaryBtnStyle(200, 55));
+        cancelBtn.setFont(Main.headerFont(22));
         cancelBtn.setOnAction(e -> {
             modal.close();
             if (client != null)

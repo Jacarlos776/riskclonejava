@@ -270,10 +270,8 @@ public class LocalLobbyPane extends StackPane {
         errorLabel.setFont(Font.font(14));
 
         Button addBtn = new Button("DAGDAGAN");
-        addBtn.setStyle(
-                "-fx-background-color: #27ae60; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 30; -fx-background-radius: 5;");
-        if (Main.BODY_FONT != null)
-            addBtn.setFont(Main.BODY_FONT);
+        addBtn.setStyle(Main.primaryBtnStyle(200, 55));
+        addBtn.setFont(Main.headerFont(22));
         addBtn.setOnAction(e -> {
             String name = nameField.getText().trim();
             if (name.isEmpty()) {
@@ -288,11 +286,9 @@ public class LocalLobbyPane extends StackPane {
         });
         Main.addHoverEffect(addBtn);
 
-        Button cancelBtn = new Button("I-cancel");
-        cancelBtn.setStyle(
-                "-fx-background-color: #ef4444; -fx-text-fill: white; -fx-font-weight: bold; -fx-padding: 10 30; -fx-background-radius: 5;");
-        if (Main.BODY_FONT != null)
-            cancelBtn.setFont(Main.BODY_FONT);
+        Button cancelBtn = new Button("KANSELAHIN");
+        cancelBtn.setStyle(Main.primaryBtnStyle(200, 55));
+        cancelBtn.setFont(Main.headerFont(22));
         cancelBtn.setOnAction(e -> modal.close());
         Main.addHoverEffect(cancelBtn);
 
