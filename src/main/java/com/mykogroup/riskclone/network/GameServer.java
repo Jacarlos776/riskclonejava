@@ -197,6 +197,33 @@ public class GameServer {
         }
     }
 
+    // --- Chat ---
+
+    // Only delivered while the game is in progress; messages from the lobby are ignored.
+    // Trims and length-limits to keep the wire/UI manageable.
+    public synchronized void onChatMessage(String pid, String text) {
+        if (!gameStarted || gameState == null) return;
+        if (pid == null || text == null) return;
+        String cleaned = text.strip();
+        if (cleaned.isEmpty()) return;
+        if (cleaned.length() > 200) cleaned = cleaned.substring(0, 200);
+
+        Player sender = gameState.getPlayers().stream()
+                .filter(p -> p.getId().equals(pid))
+                .findFirst().orElse(null);
+        if (sender == null) return;
+        String color = playerColors.getOrDefault(pid, "#cccccc");
+
+        broadcast(build(MessageType.CHAT_BROADCAST, null,
+                new ChatBroadcastPayload(pid, sender.getDisplayName(), color, cleaned, false)));
+    }
+
+    // Helper: post a system message (gray italic in the UI) to all clients.
+    private void broadcastSystemMessage(String text) {
+        broadcast(build(MessageType.CHAT_BROADCAST, null,
+                new ChatBroadcastPayload(null, null, null, text, true)));
+    }
+
     public synchronized void onStartGame(String requesterId) {
         System.out.println("[server] onStartGame: requesterId=" + requesterId + " hostPlayerId=" + hostPlayerId + " players=" + lobbyPlayers.size());
         if (requesterId == null || !requesterId.equals(hostPlayerId)) {
@@ -225,6 +252,7 @@ public class GameServer {
         broadcast(build(MessageType.GAME_START, null,
                 new GameStartPayload(gameState, colorsCopy)));
         // No broadcastStateUpdate here — GAME_START already carries the initial state
+        broadcastSystemMessage("Game started — Claiming phase has begun.");
         runAiTurnsIfNeeded();
     }
 
@@ -276,10 +304,16 @@ public class GameServer {
                     new LobbyUpdatePayload(new ArrayList<>(lobbyPlayers))));
         } else {
             // Take over as AI
+            String name = gameState.getPlayers().stream()
+                    .filter(p -> p.getId().equals(pid))
+                    .findFirst()
+                    .map(Player::getDisplayName)
+                    .orElse(pid);
             gameState.getPlayers().stream().filter(p -> p.getId().equals(pid))
                     .findFirst().ifPresent(p -> p.setAi(true));
             broadcast(build(MessageType.PLAYER_DISCONNECTED, null,
                     new PlayerDisconnectedPayload(pid)));
+            broadcastSystemMessage(name + " disconnected — taken over by AI.");
             // Force-ready the disconnected player so the game can advance.
             // (Don't go through onEndTurn — it toggles, which would un-ready
             // them if they had already submitted before disconnecting.)
@@ -299,6 +333,7 @@ public class GameServer {
                 gameState.initDraftPools(5);
                 gameState.resetReadyStates();
                 broadcastStateUpdate();
+                broadcastSystemMessage("— Drafting phase —");
                 startPhaseTimer(PHASE_SECONDS);
                 runAiTurnsIfNeeded();
             }
@@ -306,23 +341,46 @@ public class GameServer {
                 gameState.setCurrentPhase(GameState.GamePhase.PLANNING);
                 gameState.resetReadyStates();
                 broadcastStateUpdate();
+                broadcastSystemMessage("— Planning phase —");
                 startPhaseTimer(PHASE_SECONDS);
                 runAiTurnsIfNeeded();
             }
             case PLANNING -> {
+                // Snapshot survivors before resolution so we can detect new eliminations
+                Set<String> aliveBefore = new HashSet<>();
+                for (Player p : gameState.getAlivePlayers()) aliveBefore.add(p.getId());
+
                 gameState.setCurrentPhase(GameState.GamePhase.RESOLUTION);
                 broadcastStateUpdate();
                 resolutionEngine.processTurn(gameState);
 
                 List<Player> survivors = gameState.getAlivePlayers();
+                Set<String> aliveAfter = new HashSet<>();
+                for (Player p : survivors) aliveAfter.add(p.getId());
+                for (String id : aliveBefore) {
+                    if (!aliveAfter.contains(id)) {
+                        String name = gameState.getPlayers().stream()
+                                .filter(p -> p.getId().equals(id))
+                                .findFirst()
+                                .map(Player::getDisplayName)
+                                .orElse(id);
+                        broadcastSystemMessage(name + " has been eliminated.");
+                    }
+                }
+
                 if (survivors.size() <= 1) {
                     String winnerId = survivors.isEmpty() ? null : survivors.get(0).getId();
+                    String winnerName = survivors.isEmpty() ? null : survivors.get(0).getDisplayName();
                     broadcast(build(MessageType.GAME_OVER, null, new GameOverPayload(winnerId)));
+                    broadcastSystemMessage(winnerId == null
+                            ? "Game over — no survivors."
+                            : winnerName + " wins!");
                 } else {
                     gameState.setCurrentPhase(GameState.GamePhase.DRAFTING);
                     gameState.initDraftPools(5);
                     gameState.resetReadyStates();
                     broadcastStateUpdate();
+                    broadcastSystemMessage("— Drafting phase —");
                     startPhaseTimer(PHASE_SECONDS);
                     runAiTurnsIfNeeded();
                 }

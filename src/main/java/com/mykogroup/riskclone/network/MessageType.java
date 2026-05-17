@@ -12,6 +12,7 @@ public final class MessageType {
     public static final String MOVE_REQUEST   = "MOVE_REQUEST";
     public static final String END_TURN       = "END_TURN";
     public static final String KICK_PLAYER    = "KICK_PLAYER";
+    public static final String CHAT_MESSAGE   = "CHAT_MESSAGE";
 
     // Server → Client(s)
     public static final String JOIN_ACK              = "JOIN_ACK";
@@ -21,6 +22,7 @@ public final class MessageType {
     public static final String GAME_OVER             = "GAME_OVER";
     public static final String PLAYER_DISCONNECTED   = "PLAYER_DISCONNECTED";
     public static final String TIMER_UPDATE          = "TIMER_UPDATE";
+    public static final String CHAT_BROADCAST        = "CHAT_BROADCAST";
     public static final String ERROR                 = "ERROR";
 
     private MessageType() {}

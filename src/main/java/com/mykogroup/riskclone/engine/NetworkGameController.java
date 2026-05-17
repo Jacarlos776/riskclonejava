@@ -37,6 +37,9 @@ public class NetworkGameController implements GameClientListener {
     // Callback so Main can show the game-over screen (winnerId = null means draw)
     private Consumer<String> onGameOverCallback;
 
+    // Callback for incoming chat messages — wired to the ChatDrawer view
+    private Consumer<ChatBroadcastPayload> onChatCallback;
+
     // Toggle state for the Finished Turn button
     private boolean isReady = false;
     private String lastPhase = null;
@@ -78,6 +81,14 @@ public class NetworkGameController implements GameClientListener {
     public void setLocalPlayerId(String pid)               { this.localPlayerId = pid; }
     public String getLocalPlayerId()                       { return localPlayerId; }
     public void setOnGameOverCallback(Consumer<String> cb) { this.onGameOverCallback = cb; }
+    public void setOnChatCallback(Consumer<ChatBroadcastPayload> cb) { this.onChatCallback = cb; }
+
+    public void submitChat(String text) {
+        if (text == null) return;
+        String cleaned = text.strip();
+        if (cleaned.isEmpty()) return;
+        send(MessageType.CHAT_MESSAGE, new ChatMessagePayload(cleaned));
+    }
 
     // --- Intent Senders ---
 
@@ -203,6 +214,13 @@ public class NetworkGameController implements GameClientListener {
             timerLabel.setTextFill(secondsRemaining <= 5
                     ? javafx.scene.paint.Color.RED
                     : javafx.scene.paint.Color.WHITE);
+        });
+    }
+
+    @Override
+    public void onChatMessage(ChatBroadcastPayload payload) {
+        Platform.runLater(() -> {
+            if (onChatCallback != null) onChatCallback.accept(payload);
         });
     }
 

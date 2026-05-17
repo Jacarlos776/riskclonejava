@@ -98,6 +98,10 @@ public class GameClient {
                     TimerUpdatePayload p = mapper.treeToValue(msg.payload, TimerUpdatePayload.class);
                     listener.onTimerUpdate(p.phase, p.secondsRemaining);
                 }
+                case MessageType.CHAT_BROADCAST -> {
+                    ChatBroadcastPayload p = mapper.treeToValue(msg.payload, ChatBroadcastPayload.class);
+                    listener.onChatMessage(p);
+                }
                 case MessageType.ERROR -> {
                     ErrorPayload p = mapper.treeToValue(msg.payload, ErrorPayload.class);
                     listener.onError(p.message);

@@ -66,6 +66,8 @@ public class ClientHandler implements Runnable {
                 case MessageType.END_TURN -> server.onEndTurn(playerId);
                 case MessageType.KICK_PLAYER -> server.onKickPlayer(playerId,
                         server.getMapper().treeToValue(msg.payload, KickPlayerPayload.class).targetPlayerId);
+                case MessageType.CHAT_MESSAGE -> server.onChatMessage(playerId,
+                        server.getMapper().treeToValue(msg.payload, ChatMessagePayload.class).text);
                 default -> System.err.println("Unknown message type from client: " + msg.type);
             }
         } catch (Exception e) {

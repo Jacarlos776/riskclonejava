@@ -887,6 +887,9 @@ public class Main extends Application {
         }
         @Override public void onError(String m) { lobby.onError(m); controller.onError(m); }
         @Override public void onDisconnected() { lobby.onDisconnected(); controller.onDisconnected(); }
+        @Override public void onChatMessage(com.mykogroup.riskclone.network.payload.ChatBroadcastPayload p) {
+            lobby.onChatMessage(p); controller.onChatMessage(p);
+        }
         @Override public void onTimerUpdate(String phase, int secondsRemaining) {
             lobby.onTimerUpdate(phase, secondsRemaining);
             controller.onTimerUpdate(phase, secondsRemaining);
@@ -907,12 +910,20 @@ public class Main extends Application {
         StackPane.setAlignment(timerLbl, Pos.TOP_CENTER);
         timerLbl.setTranslateY(20);
 
+        // Chat drawer sits in the top-left corner; player/draft labels are
+        // shifted right so the collapsed 💬 icon doesn't collide with them.
+        com.mykogroup.riskclone.view.ChatDrawer chatDrawer =
+                new com.mykogroup.riskclone.view.ChatDrawer();
+        StackPane.setAlignment(chatDrawer, Pos.TOP_LEFT);
+        chatDrawer.setTranslateX(20);
+        chatDrawer.setTranslateY(20);
+
         Label playerLbl = new Label();
         playerLbl.setFont(Font.font("System", FontWeight.BOLD, 16));
         playerLbl.setTextFill(Color.WHITE);
         playerLbl.setStyle("-fx-background-color: rgba(0,0,0,0.5); -fx-padding: 5px; -fx-background-radius: 5px;");
         StackPane.setAlignment(playerLbl, Pos.TOP_LEFT);
-        playerLbl.setTranslateY(20); playerLbl.setTranslateX(20);
+        playerLbl.setTranslateY(20); playerLbl.setTranslateX(80);
 
         Label draftLbl = new Label();
         draftLbl.setFont(Font.font("System", FontWeight.BOLD, 16));
@@ -920,15 +931,22 @@ public class Main extends Application {
         draftLbl.setStyle("-fx-background-color: rgba(0,0,0,0.8); -fx-padding: 5px; -fx-background-radius: 5px;");
         draftLbl.setVisible(false);
         StackPane.setAlignment(draftLbl, Pos.TOP_LEFT);
-        draftLbl.setTranslateY(55); draftLbl.setTranslateX(20);
+        draftLbl.setTranslateY(55); draftLbl.setTranslateX(80);
 
         Button finishedBtn = new Button("Finished Turn");
         finishedBtn.setStyle("-fx-font-size: 16px; -fx-font-weight: bold; -fx-background-color: #f59e0b; -fx-text-fill: white;");
         StackPane.setAlignment(finishedBtn, Pos.TOP_RIGHT);
         finishedBtn.setTranslateY(20); finishedBtn.setTranslateX(-20);
 
-        gameRoot.getChildren().addAll(timerLbl, playerLbl, draftLbl, finishedBtn);
+        gameRoot.getChildren().addAll(timerLbl, playerLbl, draftLbl, finishedBtn, chatDrawer);
         mainScene.setRoot(gameRoot);
+
+        // Wire chat drawer to controller
+        chatDrawer.setOnSend(text -> networkController.submitChat(text));
+        networkController.setOnChatCallback(p -> {
+            if (p.system) chatDrawer.addSystemMessage(p.text);
+            else          chatDrawer.addMessage(p.senderName, p.senderColor, p.text);
+        });
 
         // Wire controller to UI
         networkController.attachUI(gameBoard, timerLbl, playerLbl, draftLbl, finishedBtn);
