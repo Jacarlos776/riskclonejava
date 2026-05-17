@@ -24,6 +24,7 @@ import javafx.scene.layout.Pane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Line;
+import javafx.scene.shape.Polygon;
 import javafx.scene.shape.SVGPath;
 import javafx.scene.shape.StrokeType;
 import javafx.scene.text.Font;
@@ -76,7 +77,26 @@ public class InteractiveMapPane extends Pane {
     private final Group uiLayer = new Group();
 
     // Track arrows so we can delete them
-    private final Map<String, Line> activeArrows = new HashMap<>();
+    private final Map<String, ArrowNode> activeArrows = new HashMap<>();
+
+    private static final double ARROW_END_PAD = 10;
+    private static final double ARROW_HEAD_LEN = 12;
+    private static final double ARROW_HEAD_W   = 9;
+    private static final double ARROW_SHAFT_WIDTH = 3.0;
+    private static final double ARROW_HEAD_FORWARD = 5.0; // push head tip past shaft endpoint
+    private static final double ARROW_PULSE_BOOST = 3.5;  // extra strokeWidth at pulse peak
+
+    // Composite arrow: filled shaft + arrowhead, grouped so animations apply uniformly.
+    private static class ArrowNode extends Group {
+        final Line shaft;
+        final Polygon head;
+        ArrowNode(Line shaft, Polygon head) {
+            super(shaft, head);
+            this.shaft = shaft;
+            this.head = head;
+            setMouseTransparent(true);
+        }
+    }
     private final Map<String, Text> armyLabels = new HashMap<>(); // Track text
     private final Map<String, SVGPath> provinceNodeMap = new HashMap<>();
     private boolean seaRoutesDrawn = false;
@@ -234,25 +254,65 @@ public class InteractiveMapPane extends Pane {
         arrowLayer.getChildren().clear();
     }
 
-    private void drawArrow(SVGPath source, SVGPath target, String pathKey) {
+    private void drawArrow(SVGPath source, SVGPath target, String pathKey, String ownerId) {
         Bounds sourceBounds = source.getBoundsInParent();
         Bounds targetBounds = target.getBoundsInParent();
 
-        Line arrow = new Line(
-                sourceBounds.getCenterX(), sourceBounds.getCenterY(),
-                targetBounds.getCenterX(), targetBounds.getCenterY()
+        double sx = sourceBounds.getCenterX();
+        double sy = sourceBounds.getCenterY();
+        double tx = targetBounds.getCenterX();
+        double ty = targetBounds.getCenterY();
+
+        double dx = tx - sx;
+        double dy = ty - sy;
+        double len = Math.hypot(dx, dy);
+        if (len < 1) return; // degenerate; same province
+        double ux = dx / len;
+        double uy = dy / len;
+
+        // Scale arrow geometry down for short-distance moves so close-neighbour
+        // arrows don't collapse to "just an arrowhead".
+        double scale = Math.min(1.0, len / 60.0);
+        double pad = Math.min(ARROW_END_PAD * scale, len / 3);
+        double headLen = ARROW_HEAD_LEN * scale;
+        double headW = ARROW_HEAD_W * scale;
+        double shaftWidth = Math.max(1.0, ARROW_SHAFT_WIDTH * scale);
+
+        double sx2 = sx + ux * pad;
+        double sy2 = sy + uy * pad;
+        double tx2 = tx - ux * pad;
+        double ty2 = ty - uy * pad;
+
+        Color fill = Color.web(ColorManager.getColorForPlayer(ownerId));
+        Color outline = fill.darker().darker();
+
+        Line shaft = new Line(sx2, sy2, tx2, ty2);
+        shaft.setStrokeWidth(shaftWidth);
+        shaft.setStroke(fill);
+
+        // Local-space arrowhead with its tip at the local origin (0,0).
+        // Rotate around (0,0) — the tip — and then translate the tip onto (tx2, ty2).
+        Polygon head = new Polygon(
+                0, 0,
+                -headLen, headW / 2,
+                -headLen, -headW / 2
         );
+        head.setFill(fill);
+        head.setStroke(outline);
+        head.setStrokeWidth(0.8);
+        head.getTransforms().add(new javafx.scene.transform.Rotate(
+                Math.toDegrees(Math.atan2(dy, dx)), 0, 0));
+        // Push the head tip forward along the shaft direction so the line endpoint
+        // is hidden behind the arrowhead instead of poking past it.
+        double forward = ARROW_HEAD_FORWARD * scale;
+        head.setTranslateX(tx2 + ux * forward);
+        head.setTranslateY(ty2 + uy * forward);
 
-        arrow.setStrokeWidth(4);
-        arrow.setStroke(Color.DARKRED);
-        arrow.getStrokeDashArray().addAll(10d, 5d);
-        arrow.setMouseTransparent(true);
-
-        // Add to map AND layer
+        ArrowNode arrow = new ArrowNode(shaft, head);
         activeArrows.put(pathKey, arrow);
         arrowLayer.getChildren().add(arrow);
         arrowLayer.toFront();
-        uiLayer.toFront(); // Ensure UI always stays above the new arrow
+        uiLayer.toFront();
     }
 
     private void handleMousePressed(MouseEvent event) {
@@ -396,18 +456,18 @@ public class InteractiveMapPane extends Pane {
             }
         }
 
-        // In network mode: redraw arrows from the server's queued moves list.
-        // Only show the local player's own moves — opponents' planning stays hidden.
-        if (networkClaimHandler != null) {
-            arrowLayer.getChildren().clear();
-            activeArrows.clear();
-            for (Move move : state.getQueuedMoves()) {
-                if (!move.playerId().equals(currentLocalPlayerId)) continue;
-                SVGPath src = findProvinceNode(move.fromId());
-                SVGPath tgt = findProvinceNode(move.toId());
-                if (src != null && tgt != null) {
-                    drawArrow(src, tgt, move.fromId() + "-" + move.toId());
-                }
+        // Reconcile arrows with the current queued moves. In network mode only
+        // the local player's own moves are revealed — opponents stay hidden until
+        // resolution. In hotseat everyone sees everyone's plans.
+        arrowLayer.getChildren().clear();
+        activeArrows.clear();
+        boolean isNetwork = (networkClaimHandler != null);
+        for (Move move : state.getQueuedMoves()) {
+            if (isNetwork && !move.playerId().equals(currentLocalPlayerId)) continue;
+            SVGPath src = findProvinceNode(move.fromId());
+            SVGPath tgt = findProvinceNode(move.toId());
+            if (src != null && tgt != null) {
+                drawArrow(src, tgt, move.fromId() + "-" + move.toId(), move.playerId());
             }
         }
     }
@@ -538,11 +598,11 @@ public class InteractiveMapPane extends Pane {
                 networkMoveHandler.accept(newMove);
             } else if (finalArmies == 0) {
                 gameState.setMove(newMove);
-                Line arrow = activeArrows.remove(pathKey);
+                ArrowNode arrow = activeArrows.remove(pathKey);
                 if (arrow != null) arrowLayer.getChildren().remove(arrow);
             } else {
                 gameState.setMove(newMove);
-                if (!activeArrows.containsKey(pathKey)) drawArrow(source, target, pathKey);
+                if (!activeArrows.containsKey(pathKey)) drawArrow(source, target, pathKey, currentLocalPlayerId);
             }
             uiLayer.getChildren().clear();
         });
@@ -665,7 +725,7 @@ public class InteractiveMapPane extends Pane {
             SVGPath src = findProvinceNode(move.fromId());
             SVGPath tgt = findProvinceNode(move.toId());
             if (src != null && tgt != null) {
-                drawArrow(src, tgt, move.fromId() + "-" + move.toId());
+                drawArrow(src, tgt, move.fromId() + "-" + move.toId(), move.playerId());
             }
         }
     }
@@ -717,20 +777,25 @@ public class InteractiveMapPane extends Pane {
     public void pulseArrows(List<String> sourceIds, String destId, Duration duration) {
         for (String sourceId : sourceIds) {
             String key = sourceId + "-" + destId;
-            Line arrow = activeArrows.get(key);
+            ArrowNode arrow = activeArrows.get(key);
             if (arrow == null) continue;
-            arrow.setStroke(Color.YELLOW);
+            arrow.shaft.setStroke(Color.YELLOW);
+            arrow.head.setFill(Color.YELLOW);
+            // Boost scales with the arrow's current width so short, scaled-down
+            // arrows don't pulse to a comically thick line.
+            double baseWidth = arrow.shaft.getStrokeWidth();
+            double boost = ARROW_PULSE_BOOST * (baseWidth / ARROW_SHAFT_WIDTH);
             Timeline tl = new Timeline(
                 new KeyFrame(Duration.ZERO,
-                    new KeyValue(arrow.strokeWidthProperty(), 4),
+                    new KeyValue(arrow.shaft.strokeWidthProperty(), baseWidth),
                     new KeyValue(arrow.opacityProperty(), 1.0)),
                 new KeyFrame(duration.divide(2),
-                    new KeyValue(arrow.strokeWidthProperty(), 9)),
+                    new KeyValue(arrow.shaft.strokeWidthProperty(), baseWidth + boost)),
                 new KeyFrame(duration,
-                    new KeyValue(arrow.strokeWidthProperty(), 4),
+                    new KeyValue(arrow.shaft.strokeWidthProperty(), baseWidth),
                     new KeyValue(arrow.opacityProperty(), 0.0))
             );
-            Line finalArrow = arrow;
+            ArrowNode finalArrow = arrow;
             tl.setOnFinished(e -> {
                 arrowLayer.getChildren().remove(finalArrow);
                 activeArrows.remove(key);
